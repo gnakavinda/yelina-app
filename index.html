@@ -38,7 +38,7 @@
 
 <body class="bg-brand-bg text-brand-dark font-sans min-h-screen flex flex-col antialiased">
 
-  <!-- TOP HEADER -->
+  <!-- Top application header with sync state and brand identity -->
   <header class="bg-white/80 backdrop-blur-md border-b border-stone-200 sticky top-0 z-40 px-4 py-3 sm:px-8">
     <div class="max-w-7xl mx-auto flex items-center justify-between">
       <div class="flex items-center space-x-3">
@@ -62,7 +62,7 @@
     </div>
   </header>
 
-  <!-- NAVIGATION TABS -->
+  <!-- Primary navigation between workflow, tracker, database, and AI tools -->
   <nav class="bg-stone-100 border-b border-stone-200 px-4">
     <div class="max-w-7xl mx-auto flex overflow-x-auto space-x-2 sm:space-x-8 text-sm font-medium py-2">
       <button onclick="switchTab('workflow')" id="tab-workflow"
@@ -84,7 +84,7 @@
     </div>
   </nav>
 
-  <!-- MAIN CONTAINER -->
+  <!-- Main content area containing the active app views -->
   <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
 
     <!-- TAB 1: WORKFLOW PROCESS -->
@@ -97,12 +97,19 @@
             <p class="text-stone-600 text-sm">Select a garment design below to track progress and complete steps.</p>
           </div>
 
-          <div class="w-full sm:w-72">
-            <label class="text-xs font-semibold uppercase text-stone-500 block mb-1">Active Design</label>
-            <select id="design-selector" onchange="changeSelectedDesign(this.value)"
-              class="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-semibold text-stone-900 focus:ring-2 focus:ring-brand-gold outline-none">
-              <!-- Populated dynamically -->
-            </select>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            <div class="w-full sm:w-72">
+              <label class="text-xs font-semibold uppercase text-stone-500 block mb-1">Active Design</label>
+              <select id="design-selector" onchange="changeSelectedDesign(this.value)"
+                class="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-semibold text-stone-900 focus:ring-2 focus:ring-brand-gold outline-none">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <button onclick="openAddModal()"
+              class="bg-brand-gold hover:bg-brand-goldDark text-white px-5 py-2.5 rounded-xl font-medium shadow-md transition whitespace-nowrap">
+              + Add New Design
+            </button>
           </div>
         </div>
 
@@ -119,10 +126,6 @@
           <h2 class="font-serif text-2xl font-bold text-stone-900">Launch Tracker & Monitoring</h2>
           <p class="text-stone-600 text-sm">Monitor live progress and stages driven by the workflow process.</p>
         </div>
-        <button onclick="openAddModal()"
-          class="bg-brand-gold hover:bg-brand-goldDark text-white px-5 py-2.5 rounded-xl font-medium shadow-md transition">
-          + Add New Design
-        </button>
       </div>
 
       <div id="pipeline-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -330,11 +333,12 @@
     </div>
   </div>
 
-  <!-- APP SCRIPT -->
+  <!-- Application logic and state management -->
   <script type="module">
     import {initializeApp} from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
     import {getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc} from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
+    // Production workflow steps used across the tabs and progress calculations.
     const STEPS = [
       {
         id: 1,
@@ -405,14 +409,15 @@
       }
     ];
 
+    // Shared app state for design selection, editing, and live progress tracking.
     let launches = [];
     let selectedDesignId = null;
-    let editingDesignId = null; // Stores design ID when editing
+    let editingDesignId = null; // Stores the active design id while editing a record.
     let expandedStepId = 1;
     let db = null;
     let selectedImagesBase64 = [];
 
-    // Direct Inline Placeholders for Netlify Build Injections
+    // Placeholder config values used during deployment builds and fallback local config.
     const INJECTED_CONFIG = {
       apiKey: "ENV_FIREBASE_API_KEY",
       authDomain: "ENV_FIREBASE_PROJECT_ID.firebaseapp.com",
@@ -436,6 +441,7 @@
       return null;
     }
 
+    // Initialize Firebase when config is available; otherwise show a local/offline fallback state.
     function initDatabase() {
       const config = getConfig();
 
