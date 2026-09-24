@@ -1,0 +1,36 @@
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #FAF8F5;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.tab-btn {
+  transition: all 0.2s ease;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f5f5f4;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #d6d3d1;
+  border-radius: 9999px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #a8a29e;
+}
