@@ -77,9 +77,9 @@
         class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
         <span>Database Table</span>
       </button>
-      <button onclick="switchTab('tools')" id="tab-tools"
+      <button onclick="switchTab('admin')" id="tab-admin"
         class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
-        <span>AI & Yield Tools</span>
+        <span>Admin</span>
       </button>
     </div>
   </nav>
@@ -97,17 +97,17 @@
             <p class="text-stone-600 text-sm">Select a garment design below to track progress and complete steps.</p>
           </div>
 
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full sm:w-auto">
             <div class="w-full sm:w-72">
               <label class="text-xs font-semibold uppercase text-stone-500 block mb-1">Active Design</label>
               <select id="design-selector" onchange="changeSelectedDesign(this.value)"
-                class="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-semibold text-stone-900 focus:ring-2 focus:ring-brand-gold outline-none">
+                class="w-full h-[42px] p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-semibold text-stone-900 focus:ring-2 focus:ring-brand-gold outline-none">
                 <!-- Populated dynamically -->
               </select>
             </div>
 
             <button onclick="openAddModal()"
-              class="bg-brand-gold hover:bg-brand-goldDark text-white px-5 py-2.5 rounded-xl font-medium shadow-md transition whitespace-nowrap">
+              class="bg-brand-gold hover:bg-brand-goldDark text-white px-5 h-[42px] rounded-xl font-medium shadow-md transition whitespace-nowrap self-end flex items-center">
               + Add New Design
             </button>
           </div>
@@ -169,67 +169,27 @@
       </div>
     </section>
 
-    <!-- TAB 4: TOOLS -->
-    <section id="view-tools" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- AI Tech Pack Generator -->
-      <div class="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-        <h3 class="font-serif text-xl font-bold text-stone-900">AI Tech Pack Brief Prompt Builder</h3>
-        <p class="text-xs text-stone-500">Construct ready-to-use prompts for AI design tools.</p>
-
-        <div>
-          <label class="text-xs font-semibold uppercase text-stone-600">Garment Category</label>
-          <input id="tool-type" type="text" value="Maxi Wrap Dress" class="w-full mt-1 p-2.5 border rounded-xl text-sm">
-        </div>
-        <div>
-          <label class="text-xs font-semibold uppercase text-stone-600">Target Fit & Cut</label>
-          <input id="tool-fit" type="text" value="A-Line with relaxed sleeves, flattering for S-5XL"
-            class="w-full mt-1 p-2.5 border rounded-xl text-sm">
-        </div>
-        <div>
-          <label class="text-xs font-semibold uppercase text-stone-600">Fabric & Trim Details</label>
-          <input id="tool-fabric" type="text" value="Breathable Viscose Linen, Matte Gold Buttons"
-            class="w-full mt-1 p-2.5 border rounded-xl text-sm">
-        </div>
-
-        <button onclick="generateAIPrompt()"
-          class="w-full bg-stone-900 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-stone-800 transition">
-          Generate AI Prompt
-        </button>
-
-        <textarea id="tool-output" rows="4" readonly
-          class="w-full p-3 bg-stone-50 border rounded-xl text-xs font-mono text-stone-800"
-          placeholder="Generated prompt will appear here..."></textarea>
-      </div>
-
-      <!-- S-5XL Fabric Yield Calculator -->
-      <div class="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-        <h3 class="font-serif text-xl font-bold text-stone-900">Fabric Yield & LKR Estimator</h3>
-        <p class="text-xs text-stone-500">Calculate total yardage across the S–5XL size spectrum.</p>
-
-        <div class="grid grid-cols-2 gap-3">
+    <!-- TAB 4: ADMIN -->
+    <section id="view-admin" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-stone-200">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <label class="text-xs font-semibold uppercase text-stone-600">Base Yardage (Size M)</label>
-            <input id="calc-base" type="number" step="0.1" value="2.5"
-              class="w-full mt-1 p-2.5 border rounded-xl text-sm">
+            <h2 class="font-serif text-2xl font-bold text-stone-900">Workflow Admin</h2>
+            <p class="text-stone-600 text-sm">Add, edit, save, and remove production process steps.</p>
           </div>
-          <div>
-            <label class="text-xs font-semibold uppercase text-stone-600">Price/Yard (LKR)</label>
-            <input id="calc-price" type="number" value="1200" class="w-full mt-1 p-2.5 border rounded-xl text-sm">
+          <div class="flex gap-3">
+            <button onclick="addWorkflowStep()"
+              class="bg-brand-gold hover:bg-brand-goldDark text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
+              + Add Process
+            </button>
+            <button onclick="saveWorkflowChanges()"
+              class="bg-stone-900 hover:bg-stone-800 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
+              Save Workflow
+            </button>
           </div>
         </div>
 
-        <div>
-          <label class="text-xs font-semibold uppercase text-stone-600">Quantity per size (S to 5XL)</label>
-          <input id="calc-qty" type="number" value="10" class="w-full mt-1 p-2.5 border rounded-xl text-sm">
-        </div>
-
-        <button onclick="calculateYield()"
-          class="w-full bg-brand-gold text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-brand-goldDark transition">
-          Calculate Fabric Requirement
-        </button>
-
-        <div id="calc-result"
-          class="p-4 bg-amber-50 border border-amber-200 rounded-xl text-stone-900 text-sm space-y-1 hidden">
+        <div id="admin-steps-container" class="space-y-4">
           <!-- Populated by JS -->
         </div>
       </div>
@@ -338,8 +298,8 @@
     import {initializeApp} from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
     import {getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc} from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
-    // Production workflow steps used across the tabs and progress calculations.
-    const STEPS = [
+    // Default workflow steps used when no custom admin configuration has been saved yet.
+    const DEFAULT_STEPS = [
       {
         id: 1,
         title: 'Concept & Trend Research',
@@ -393,7 +353,6 @@
         title: 'Assembly & In-Line QC',
         desc: 'Stitching, ironing, and quality assurance during production.',
         checklist: ['Check thread tension and seam strength', 'Verify size label & care tag accuracy', 'Perform end-of-line quality inspection', 'Check stress points (underarm, waist) hold up on larger sizes']
-
       },
       {
         id: 10,
@@ -408,6 +367,33 @@
         checklist: ['Shoot full S-5XL model photos (post-bulk)', 'Upload product details to web store', 'Launch Instagram & Facebook teaser campaigns', 'Use real plus-size/older models in photos, not just standard sizing']
       }
     ];
+
+    function escapeHtml(value = '') {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function loadWorkflowSteps() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('yelina_workflow_steps') || 'null');
+        if (Array.isArray(saved) && saved.length > 0) {
+          return saved.map(step => ({
+            ...step,
+            checklist: Array.isArray(step.checklist) ? step.checklist : []
+          }));
+        }
+      } catch (error) {
+        console.warn('Failed to load workflow steps from localStorage', error);
+      }
+
+      return DEFAULT_STEPS.map(step => ({ ...step, checklist: [...step.checklist] }));
+    }
+
+    let STEPS = loadWorkflowSteps();
 
     // Shared app state for design selection, editing, and live progress tracking.
     let launches = [];
@@ -559,6 +545,121 @@
       document.getElementById(`view-${tab}`).classList.remove('hidden');
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('bg-white', 'shadow-sm', 'font-semibold'));
       document.getElementById(`tab-${tab}`).classList.add('bg-white', 'shadow-sm', 'font-semibold');
+    };
+
+    function renderAdminSteps() {
+      const container = document.getElementById('admin-steps-container');
+      if (!container) return;
+
+      container.innerHTML = STEPS.map((step, index) => `
+        <div class="border border-stone-200 rounded-2xl p-4 bg-stone-50">
+          <div class="flex justify-between items-center mb-3">
+            <div class="font-semibold text-stone-800">Process ${index + 1}</div>
+            <button onclick="removeWorkflowStep(${step.id})" class="text-xs text-red-600 hover:text-red-700 font-medium">
+              Remove
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-semibold uppercase text-stone-600 block mb-1">Title</label>
+              <input value="${escapeHtml(step.title)}" oninput="updateWorkflowField(${step.id}, 'title', this.value)"
+                class="w-full p-2.5 border border-stone-300 rounded-xl text-sm" />
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold uppercase text-stone-600 block mb-1">Description</label>
+              <textarea rows="2" oninput="updateWorkflowField(${step.id}, 'desc', this.value)"
+                class="w-full p-2.5 border border-stone-300 rounded-xl text-sm">${escapeHtml(step.desc)}</textarea>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-xs font-semibold uppercase text-stone-600">Checklist</label>
+                <button onclick="addWorkflowChecklistItem(${step.id})" class="text-xs text-brand-goldDark font-medium">
+                  + Add item
+                </button>
+              </div>
+
+              <div class="space-y-2">
+                ${(step.checklist && step.checklist.length ? step.checklist : ['']).map((item, itemIndex) => `
+                  <div class="flex gap-2 items-center">
+                    <input value="${escapeHtml(item)}" oninput="updateWorkflowChecklistItem(${step.id}, ${itemIndex}, this.value)"
+                      class="w-full p-2 border border-stone-300 rounded-xl text-sm" />
+                    <button onclick="removeWorkflowChecklistItem(${step.id}, ${itemIndex})" class="text-stone-400 hover:text-red-600 text-lg leading-none">×</button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    window.updateWorkflowField = (id, field, value) => {
+      const step = STEPS.find(item => item.id === id);
+      if (!step) return;
+      step[field] = value;
+    };
+
+    window.updateWorkflowChecklistItem = (id, itemIndex, value) => {
+      const step = STEPS.find(item => item.id === id);
+      if (!step || !Array.isArray(step.checklist)) return;
+      step.checklist[itemIndex] = value;
+    };
+
+    window.addWorkflowChecklistItem = (id) => {
+      const step = STEPS.find(item => item.id === id);
+      if (!step) return;
+      step.checklist.push('New checklist item');
+      renderAdminSteps();
+    };
+
+    window.removeWorkflowChecklistItem = (id, itemIndex) => {
+      const step = STEPS.find(item => item.id === id);
+      if (!step || !Array.isArray(step.checklist)) return;
+      step.checklist.splice(itemIndex, 1);
+      if (step.checklist.length === 0) {
+        step.checklist = ['Add a checklist item'];
+      }
+      renderAdminSteps();
+    };
+
+    window.addWorkflowStep = () => {
+      const newStep = {
+        id: Date.now(),
+        title: 'New Workflow Process',
+        desc: 'Describe this stage in the production workflow.',
+        checklist: ['Add checklist item']
+      };
+      STEPS.push(newStep);
+      renderAdminSteps();
+    };
+
+    window.removeWorkflowStep = (id) => {
+      if (STEPS.length <= 1) {
+        alert('At least one workflow process must remain.');
+        return;
+      }
+      STEPS = STEPS.filter(step => step.id !== id);
+      renderAdminSteps();
+    };
+
+    window.saveWorkflowChanges = () => {
+      const cleaned = STEPS.map(step => ({
+        id: Number(step.id) || Date.now() + Math.random(),
+        title: String(step.title || 'Untitled Process').trim() || 'Untitled Process',
+        desc: String(step.desc || '').trim(),
+        checklist: Array.isArray(step.checklist) ? step.checklist.filter(item => item && String(item).trim()).map(item => String(item).trim()) : []
+      }));
+
+      STEPS = cleaned;
+      localStorage.setItem('yelina_workflow_steps', JSON.stringify(STEPS));
+      renderSteps();
+      renderLaunches();
+      renderTable();
+      renderAdminSteps();
+      alert('Workflow saved successfully.');
     };
 
     window.toggleStepInline = (id) => {
@@ -884,30 +985,6 @@
       `).join('');
     }
 
-    window.generateAIPrompt = () => {
-      const type = document.getElementById('tool-type').value;
-      const fit = document.getElementById('tool-fit').value;
-      const fabric = document.getElementById('tool-fabric').value;
-      document.getElementById('tool-output').value = `Professional flat technical garment sketch, vector style on plain white background. Front and back view of a ${type}. Design features: ${fit}. Fabric texture appearance: ${fabric}. Clear seam construction details, precise stitching lines, designed for Sri Lankan tropical climate fashion brand Yelina.`;
-    };
-
-    window.calculateYield = () => {
-      const base = Number(document.getElementById('calc-base').value);
-      const price = Number(document.getElementById('calc-price').value);
-      const qty = Number(document.getElementById('calc-qty').value);
-      const multipliers = [0.9, 1.0, 1.1, 1.25, 1.4, 1.55, 1.7, 1.85];
-      const totalYards = multipliers.reduce((acc, m) => acc + (base * m * qty), 0);
-      const totalCost = totalYards * price;
-
-      const res = document.getElementById('calc-result');
-      res.classList.remove('hidden');
-      res.innerHTML = `
-        <div class="font-bold text-amber-900">Total Fabric Requirement: ${totalYards.toFixed(1)} Yards</div>
-        <div class="text-xs text-amber-800">Estimated Total Fabric Cost: LKR ${totalCost.toLocaleString()}</div>
-        <div class="text-xs text-stone-500 mt-1">*Calculated across 8 sizes (S to 5XL) at ${qty} units per size.</div>
-      `;
-    };
-
     window.exportCSV = () => {
       const csvContent = "data:text/csv;charset=utf-8,"
         + ["Code,Name,Stage,Fabric,Cost_LKR,Target_Date", ...launches.map(l => `${l.code},"${l.name}",${l.stage},"${l.fabric}",${l.cost},${l.date}`)].join("\n");
@@ -921,6 +998,7 @@
     };
 
     initDatabase();
+    renderAdminSteps();
     renderSteps();
     renderLaunches();
     renderTable();
