@@ -846,28 +846,44 @@
 
       container.innerHTML = STEPS.map(s => {
         const isExpanded = expandedStepId === s.id;
-        const isStepComplete = s.checklist.every((_, idx) => !!tasks[`${s.id}_${idx}`]);
+        const completedCount = s.checklist.filter((_, idx) => !!tasks[`${s.id}_${idx}`]).length;
+        const totalCount = s.checklist.length;
+        const isStepComplete = completedCount === totalCount && totalCount > 0;
+        const isStepInProgress = completedCount > 0 && !isStepComplete;
+        const statusText = isStepComplete ? 'Completed' : isStepInProgress ? 'In Progress' : 'Not Started';
+        const badgeClasses = isStepComplete
+          ? 'bg-emerald-100 text-emerald-800'
+          : isStepInProgress
+            ? 'bg-amber-100 text-amber-800'
+            : 'bg-stone-200 text-stone-700';
+        const iconBg = isStepComplete
+          ? 'bg-emerald-600'
+          : isStepInProgress
+            ? 'bg-amber-500'
+            : 'bg-stone-400';
+        const cardClass = isStepComplete
+          ? 'bg-emerald-50 border-emerald-500 shadow-sm'
+          : isStepInProgress
+            ? 'bg-amber-50/60 border-amber-400 shadow-sm'
+            : 'bg-stone-50 border-stone-200 hover:bg-stone-100';
 
-        let cardClass = "p-4 border rounded-xl cursor-pointer transition flex items-center justify-between ";
-        if (isStepComplete) {
-          cardClass += "bg-emerald-50 border-emerald-500 shadow-sm";
-        } else if (isExpanded) {
-          cardClass += "bg-amber-50/40 border-brand-gold";
-        } else {
-          cardClass += "bg-stone-50 border-stone-200 hover:bg-amber-50/30";
+        let stepCardClass = "p-4 border rounded-xl cursor-pointer transition flex items-center justify-between ";
+        stepCardClass += cardClass;
+        if (!isStepComplete && !isStepInProgress && isExpanded) {
+          stepCardClass += ' bg-amber-50/30 border-brand-gold';
         }
 
         return `
           <div class="col-span-1 md:col-span-2 lg:col-span-4 transition-all">
-            <div onclick="toggleStepInline(${s.id})" class="${cardClass}">
+            <div onclick="toggleStepInline(${s.id})" class="${stepCardClass}">
               <div class="flex items-center space-x-3">
-                <span class="w-7 h-7 rounded-full ${isStepComplete ? 'bg-emerald-600' : 'bg-brand-gold'} text-white text-xs font-bold flex items-center justify-center shadow-sm">
+                <span class="w-7 h-7 rounded-full ${iconBg} text-white text-xs font-bold flex items-center justify-center shadow-sm">
                   ${isStepComplete ? '✓' : s.id}
                 </span>
                 <div>
                   <div class="flex items-center space-x-2">
                     <h4 class="font-bold text-stone-900 text-sm">${s.title}</h4>
-                    ${isStepComplete ? '<span class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">Completed</span>' : ''}
+                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${badgeClasses}">${statusText}</span>
                   </div>
                   <p class="text-xs text-stone-500">${s.desc}</p>
                 </div>
