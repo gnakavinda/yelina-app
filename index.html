@@ -128,7 +128,7 @@
       <div id="pipeline-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
     </section>
 
-    <section id="view-deadlines" class="hidden space-y-5 md:w-screen md:relative md:left-1/2 md:-translate-x-1/2 px-1 sm:px-3">
+    <section id="view-deadlines" class="hidden space-y-5 max-w-6xl mx-auto">
       <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
         <div>
           <h2 class="font-serif text-2xl font-bold text-stone-900">Launch Deadlines</h2>
@@ -149,7 +149,7 @@
 
       <div class="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
-          <div class="min-w-[840px]">
+          <div class="min-w-[700px]">
             <div class="grid grid-cols-7 border-b border-stone-200 bg-stone-100" aria-hidden="true">
               <div class="p-3 text-xs font-semibold uppercase text-stone-600">Sunday</div>
               <div class="p-3 text-xs font-semibold uppercase text-stone-600">Monday</div>
@@ -374,15 +374,17 @@
           <label for="calendar-task-title" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Task</label>
           <input id="calendar-task-title" required maxlength="140" class="w-full p-3 border border-stone-300 rounded-xl text-sm" placeholder="e.g. Approve final product photos">
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label for="calendar-task-date" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Date</label>
-            <input id="calendar-task-date" type="date" required class="w-full p-3 border border-stone-300 rounded-xl text-sm">
+        <div class="space-y-2">
+          <label for="calendar-task-date" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Scheduled Days</label>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input id="calendar-task-date" type="date" class="flex-1 p-3 border border-stone-300 rounded-xl text-sm">
+            <button type="button" onclick="addCalendarTaskDate()" class="px-4 py-2 rounded-xl border border-stone-300 text-sm font-medium text-stone-700 hover:bg-stone-100">Add Day</button>
           </div>
-          <div>
-            <label for="calendar-task-time" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Time (optional)</label>
-            <input id="calendar-task-time" type="time" class="w-full p-3 border border-stone-300 rounded-xl text-sm">
-          </div>
+          <div id="calendar-task-selected-dates" class="flex flex-wrap gap-2" aria-live="polite"></div>
+        </div>
+        <div>
+          <label for="calendar-task-time" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Time (optional)</label>
+          <input id="calendar-task-time" type="time" class="w-full p-3 border border-stone-300 rounded-xl text-sm">
         </div>
         <div>
           <label for="calendar-task-design" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Related Design (optional)</label>

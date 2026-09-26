@@ -28,6 +28,13 @@ function dateFromKey(key) {
   return new Date(year, month - 1, day);
 }
 
+function getTaskDates(task) {
+  if (Array.isArray(task.dates) && task.dates.length > 0) {
+    return [...new Set(task.dates.filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date)))];
+  }
+  return task.date ? [task.date] : [];
+}
+
 function loadCalendarTasks() {
   try {
     const saved = JSON.parse(localStorage.getItem('yelina_calendar_tasks') || '[]');
@@ -41,6 +48,7 @@ function loadCalendarTasks() {
 let calendarTasks = loadCalendarTasks();
 let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let editingCalendarTaskId = null;
+let selectedCalendarTaskDates = [];
 let selectedCalendarTaskColor = 'gold';
 let getLaunches = () => [];
 
@@ -79,6 +87,21 @@ function renderTaskColorOptions() {
   }).join('');
 }
 
+function renderSelectedTaskDates() {
+  const container = document.getElementById('calendar-task-selected-dates');
+  if (selectedCalendarTaskDates.length === 0) {
+    container.innerHTML = '<span class="text-sm text-stone-500">Select at least one day.</span>';
+    return;
+  }
+
+  container.innerHTML = selectedCalendarTaskDates.map(date => `
+    <span class="inline-flex items-center gap-1 rounded-full bg-stone-100 px-3 py-1 text-sm text-stone-700">
+      ${dateFromKey(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+      <button type="button" onclick="removeCalendarTaskDate('${date}')" aria-label="Remove ${dateFromKey(date).toLocaleDateString(undefined, { dateStyle: 'full' })}" class="w-5 h-5 rounded-full text-stone-500 hover:text-red-700 hover:bg-stone-200">×</button>
+    </span>
+  `).join('');
+}
+
 function renderCalendar() {
   const grid = document.getElementById('calendar-grid');
   if (!grid) return;
@@ -97,10 +120,10 @@ function renderCalendar() {
     const isCurrentMonth = day.getMonth() === month;
     const isToday = key === today;
     const dayTasks = calendarTasks
-      .filter(task => task.date === key)
+      .filter(task => getTaskDates(task).includes(key))
       .sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.title.localeCompare(b.title));
     const classes = [
-      'min-h-[132px] p-2 border-r border-b border-stone-200 flex flex-col gap-1.5',
+      'min-h-[96px] p-1.5 border-r border-b border-stone-200 flex flex-col gap-1',
       isCurrentMonth ? 'bg-white' : 'bg-stone-50/70',
       isToday ? 'ring-2 ring-inset ring-brand-gold' : ''
     ].filter(Boolean).join(' ');
@@ -126,15 +149,17 @@ function renderCalendar() {
           <button type="button" onclick="openCalendarTaskModal('${key}')" aria-label="Add task on ${day.toLocaleDateString(undefined, { dateStyle: 'full' })}"
             class="w-8 h-8 rounded-lg flex items-center justify-center text-lg text-stone-400 hover:text-stone-900 hover:bg-stone-100">+</button>
         </div>
-        <div class="max-h-[88px] overflow-y-auto space-y-1 scrollbar-thin">${taskItems}</div>
+        <div class="max-h-[52px] overflow-y-auto space-y-1 scrollbar-thin">${taskItems}</div>
       </div>
     `;
   });
 
   grid.innerHTML = dayCells.join('');
   const monthTasks = calendarTasks.filter(task => {
-    const taskDate = dateFromKey(task.date);
-    return taskDate.getFullYear() === year && taskDate.getMonth() === month;
+    return getTaskDates(task).some(date => {
+      const taskDate = dateFromKey(date);
+      return taskDate.getFullYear() === year && taskDate.getMonth() === month;
+    });
   });
   const openTasks = monthTasks.filter(task => !task.completed).length;
   document.getElementById('calendar-task-summary').textContent = `${monthTasks.length} task${monthTasks.length === 1 ? '' : 's'} this month · ${openTasks} remaining`;
@@ -154,10 +179,11 @@ window.goToCalendarToday = () => {
 window.openCalendarTaskModal = (date = '', taskId = null) => {
   const task = calendarTasks.find(item => item.id === taskId);
   editingCalendarTaskId = task?.id || null;
+  selectedCalendarTaskDates = task ? getTaskDates(task) : [date || dateKey(new Date())];
   selectedCalendarTaskColor = CALENDAR_TASK_COLORS[task?.color] ? task.color : 'gold';
   document.getElementById('calendar-task-modal-title').textContent = task ? 'Edit Launch Task' : 'Add Launch Task';
   document.getElementById('calendar-task-title').value = task?.title || '';
-  document.getElementById('calendar-task-date').value = task?.date || date || dateKey(new Date());
+  document.getElementById('calendar-task-date').value = selectedCalendarTaskDates[0] || date || dateKey(new Date());
   document.getElementById('calendar-task-time').value = task?.time || '';
   document.getElementById('calendar-task-notes').value = task?.notes || '';
   document.getElementById('calendar-task-completed').checked = !!task?.completed;
@@ -165,8 +191,24 @@ window.openCalendarTaskModal = (date = '', taskId = null) => {
   document.getElementById('calendar-task-remove').classList.toggle('hidden', !task);
   renderDesignOptions(task?.designId || '');
   renderTaskColorOptions();
+  renderSelectedTaskDates();
   document.getElementById('modal-calendar-task').classList.remove('hidden');
   document.getElementById('calendar-task-title').focus();
+};
+
+window.addCalendarTaskDate = () => {
+  const date = document.getElementById('calendar-task-date').value;
+  if (!date || selectedCalendarTaskDates.includes(date)) return;
+  selectedCalendarTaskDates = [...selectedCalendarTaskDates, date].sort();
+  renderSelectedTaskDates();
+};
+
+window.removeCalendarTaskDate = (date) => {
+  selectedCalendarTaskDates = selectedCalendarTaskDates.filter(item => item !== date);
+  if (document.getElementById('calendar-task-date').value === date) {
+    document.getElementById('calendar-task-date').value = selectedCalendarTaskDates[0] || '';
+  }
+  renderSelectedTaskDates();
 };
 
 window.selectCalendarTaskColor = (color) => {
@@ -183,15 +225,23 @@ window.closeCalendarTaskModal = () => {
 window.saveCalendarTask = (event) => {
   event.preventDefault();
   const title = document.getElementById('calendar-task-title').value.trim();
-  const date = document.getElementById('calendar-task-date').value;
-  if (!title || !date) return;
+  const inputDate = document.getElementById('calendar-task-date').value;
+  if (inputDate && !selectedCalendarTaskDates.includes(inputDate)) {
+    selectedCalendarTaskDates = [...selectedCalendarTaskDates, inputDate].sort();
+  }
+  const dates = [...new Set(selectedCalendarTaskDates)].sort();
+  if (!title || dates.length === 0) {
+    alert('Add at least one scheduled day for this task.');
+    return;
+  }
 
   const designId = document.getElementById('calendar-task-design').value;
   const selectedDesign = getLaunchOptions().find(launch => String(launch.id) === String(designId));
   const task = {
     id: editingCalendarTaskId || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
     title,
-    date,
+    date: dates[0],
+    dates,
     time: document.getElementById('calendar-task-time').value,
     designId,
     designName: selectedDesign?.name || '',
@@ -204,7 +254,12 @@ window.saveCalendarTask = (event) => {
     : [...calendarTasks, task];
 
   if (!saveCalendarTasks(nextTasks)) return;
-  calendarMonth = new Date(dateFromKey(date).getFullYear(), dateFromKey(date).getMonth(), 1);
+  const visibleDate = dates.find(date => {
+    const selectedDate = dateFromKey(date);
+    return selectedDate.getFullYear() === calendarMonth.getFullYear() && selectedDate.getMonth() === calendarMonth.getMonth();
+  }) || dates[0];
+  const selectedDate = dateFromKey(visibleDate);
+  calendarMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
   renderCalendar();
   closeCalendarTaskModal();
 };
