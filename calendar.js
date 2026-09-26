@@ -1,3 +1,5 @@
+import { collection, deleteDoc, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+
 function escapeHtml(value = '') {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -53,16 +55,44 @@ let selectedCalendarTaskColor = 'gold';
 let draggedCalendarTask = null;
 let calendarTaskListQuery = '';
 let getLaunches = () => [];
+let calendarDatabase = null;
+let calendarCloudReady = false;
 
 function saveCalendarTasks(nextTasks) {
   try {
     localStorage.setItem('yelina_calendar_tasks', JSON.stringify(nextTasks));
+    const previousTasks = calendarTasks;
     calendarTasks = nextTasks;
+    if (calendarDatabase && calendarCloudReady) {
+      syncCalendarTaskChanges(previousTasks, nextTasks);
+    }
     return true;
   } catch (error) {
     alert('Unable to save calendar tasks in this browser. Check available storage and try again.');
     return false;
   }
+}
+
+function syncCalendarTaskChanges(previousTasks, nextTasks) {
+  const collectionRef = collection(calendarDatabase, 'yelina_calendar_tasks');
+  const nextById = new Map(nextTasks.map(task => [String(task.id), task]));
+
+  previousTasks.forEach(task => {
+    if (!nextById.has(String(task.id))) {
+      deleteDoc(doc(collectionRef, String(task.id))).catch(error => {
+        console.error('Failed to remove calendar task from Firestore', error);
+      });
+    }
+  });
+
+  nextTasks.forEach(task => {
+    const previous = previousTasks.find(item => String(item.id) === String(task.id));
+    if (!previous || JSON.stringify(previous) !== JSON.stringify(task)) {
+      setDoc(doc(collectionRef, String(task.id)), task).catch(error => {
+        console.error('Failed to save calendar task to Firestore', error);
+      });
+    }
+  });
 }
 
 function getLaunchOptions() {
@@ -403,8 +433,38 @@ window.removeCalendarTask = () => {
   closeCalendarTaskModal();
 };
 
-export function initializeCalendar(launchesProvider) {
+export function initializeCalendar(launchesProvider, databaseProvider = () => null) {
   getLaunches = launchesProvider;
   calendarTasks = loadCalendarTasks();
   renderCalendar();
+
+  calendarDatabase = databaseProvider();
+  calendarCloudReady = false;
+  if (!calendarDatabase) return;
+
+  let isInitialSnapshot = true;
+  onSnapshot(collection(calendarDatabase, 'yelina_calendar_tasks'), snapshot => {
+    const cloudTasks = snapshot.docs.map(taskDoc => ({ ...taskDoc.data(), id: taskDoc.id }));
+    if (isInitialSnapshot) {
+      isInitialSnapshot = false;
+      const cloudIds = new Set(cloudTasks.map(task => String(task.id)));
+      const localOnlyTasks = calendarTasks.filter(task => !cloudIds.has(String(task.id)));
+      calendarTasks = [...cloudTasks, ...localOnlyTasks];
+      calendarCloudReady = true;
+      if (localOnlyTasks.length) syncCalendarTaskChanges([], localOnlyTasks);
+    } else {
+      calendarTasks = cloudTasks;
+      calendarCloudReady = true;
+    }
+
+    try {
+      localStorage.setItem('yelina_calendar_tasks', JSON.stringify(calendarTasks));
+    } catch (error) {
+      console.warn('Failed to cache Firestore calendar tasks locally', error);
+    }
+    renderCalendar();
+  }, error => {
+    calendarCloudReady = false;
+    console.error('Firestore calendar task sync error', error);
+  });
 }

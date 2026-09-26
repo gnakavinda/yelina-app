@@ -712,7 +712,7 @@ window.exportCSV = () => {
 
 initDatabase();
 initializeVendorManager();
-initializeCalendar(() => launches);
+initializeCalendar(() => launches, () => db);
 renderAdminSteps();
 renderSteps();
 renderLaunches();
