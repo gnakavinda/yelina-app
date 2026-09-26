@@ -23,6 +23,16 @@ textarea {
   color: var(--task-foreground);
 }
 
+.calendar-task-dragging {
+  opacity: 0.45;
+}
+
+.calendar-day-drop-target {
+  background-color: #FDF6E7 !important;
+  outline: 2px dashed #C5A059;
+  outline-offset: -3px;
+}
+
 .calendar-color-swatch[aria-pressed="true"] {
   outline: 2px solid #1c1917;
   outline-offset: 2px;

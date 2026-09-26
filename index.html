@@ -71,7 +71,7 @@
       </button>
       <button onclick="switchTab('deadlines')" id="tab-deadlines"
         class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
-        <span>Deadlines</span>
+        <span>Launch Calendar</span>
       </button>
       <button onclick="switchTab('database')" id="tab-database"
         class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
@@ -128,10 +128,10 @@
       <div id="pipeline-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
     </section>
 
-    <section id="view-deadlines" class="hidden space-y-5 max-w-6xl mx-auto">
+    <section id="view-deadlines" class="hidden space-y-5 max-w-7xl mx-auto">
       <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
         <div>
-          <h2 class="font-serif text-2xl font-bold text-stone-900">Launch Deadlines</h2>
+          <h2 class="font-serif text-2xl font-bold text-stone-900">Launch Calendar</h2>
           <p class="text-stone-600 text-sm">Plan launch tasks by date and keep each milestone in view.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -147,23 +147,43 @@
         </div>
       </div>
 
-      <div class="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-          <div class="min-w-[700px]">
-            <div class="grid grid-cols-7 border-b border-stone-200 bg-stone-100" aria-hidden="true">
-              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Sunday</div>
-              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Monday</div>
-              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Tuesday</div>
-              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Wednesday</div>
-              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Thursday</div>
-              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Friday</div>
-              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Saturday</div>
+      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] gap-4 items-start">
+        <div>
+          <div class="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <div class="min-w-[700px]">
+                <div class="grid grid-cols-7 border-b border-stone-200 bg-stone-100" aria-hidden="true">
+                  <div class="p-3 text-xs font-semibold uppercase text-stone-600">Sunday</div>
+                  <div class="p-3 text-xs font-semibold uppercase text-stone-600">Monday</div>
+                  <div class="p-3 text-xs font-semibold uppercase text-stone-600">Tuesday</div>
+                  <div class="p-3 text-xs font-semibold uppercase text-stone-600">Wednesday</div>
+                  <div class="p-3 text-xs font-semibold uppercase text-stone-600">Thursday</div>
+                  <div class="p-3 text-xs font-semibold uppercase text-stone-600">Friday</div>
+                  <div class="p-3 text-xs font-semibold uppercase text-stone-600">Saturday</div>
+                </div>
+                <div id="calendar-grid" class="grid grid-cols-7" aria-label="Monthly calendar"></div>
+              </div>
             </div>
-            <div id="calendar-grid" class="grid grid-cols-7" aria-label="Monthly calendar"></div>
           </div>
+          <p id="calendar-task-summary" class="mt-2 text-sm text-stone-500"></p>
         </div>
+
+        <aside class="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-stone-200">
+            <div class="flex items-baseline justify-between gap-3">
+              <h3 class="font-serif text-lg font-bold text-stone-900">Task List</h3>
+              <span id="calendar-task-list-count" class="text-xs text-stone-500"></span>
+            </div>
+            <label class="block mt-3">
+              <span class="sr-only">Search tasks</span>
+              <input id="calendar-task-list-search" type="search" oninput="filterCalendarTaskList(this.value)"
+                class="w-full p-2.5 border border-stone-300 rounded-lg text-sm" placeholder="Search tasks or designs">
+            </label>
+          </div>
+          <div id="calendar-task-list" class="max-h-[520px] overflow-y-auto divide-y divide-stone-100" aria-live="polite"></div>
+        </aside>
       </div>
-      <p id="calendar-task-summary" class="text-sm text-stone-500"></p>
+      <p id="calendar-drag-status" class="sr-only" aria-live="polite"></p>
     </section>
 
     <section id="view-database" class="hidden space-y-6">

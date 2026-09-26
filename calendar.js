@@ -50,6 +50,8 @@ let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 let editingCalendarTaskId = null;
 let selectedCalendarTaskDates = [];
 let selectedCalendarTaskColor = 'gold';
+let draggedCalendarTask = null;
+let calendarTaskListQuery = '';
 let getLaunches = () => [];
 
 function saveCalendarTasks(nextTasks) {
@@ -123,7 +125,7 @@ function renderCalendar() {
       .filter(task => getTaskDates(task).includes(key))
       .sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.title.localeCompare(b.title));
     const classes = [
-      'min-h-[96px] p-1.5 border-r border-b border-stone-200 flex flex-col gap-1',
+      'min-h-[84px] p-1.5 border-r border-b border-stone-200 flex flex-col gap-1',
       isCurrentMonth ? 'bg-white' : 'bg-stone-50/70',
       isToday ? 'ring-2 ring-inset ring-brand-gold' : ''
     ].filter(Boolean).join(' ');
@@ -132,9 +134,9 @@ function renderCalendar() {
       const launchName = task.designName || getLaunchOptions().find(launch => String(launch.id) === String(task.designId))?.name;
       const color = CALENDAR_TASK_COLORS[task.color] || CALENDAR_TASK_COLORS.gold;
       return `
-        <button type="button" onclick="openCalendarTaskModal('', '${escapeHtml(task.id)}')" title="${escapeHtml(task.title)}${task.notes ? ` - ${escapeHtml(task.notes)}` : ''}"
+        <button type="button" draggable="true" ondragstart="startCalendarTaskDrag(event, '${escapeHtml(task.id)}', '${key}')" ondragend="endCalendarTaskDrag(event)" onclick="openCalendarTaskModal('', '${escapeHtml(task.id)}')" aria-label="${escapeHtml(task.title)}. Drag to move to another day, or select to edit." title="Drag to move: ${escapeHtml(task.title)}${task.notes ? ` - ${escapeHtml(task.notes)}` : ''}"
           style="--task-background:${color.background}; --task-border:${color.border}; --task-foreground:${color.foreground};"
-          class="calendar-task-chip w-full text-left rounded-md px-2 py-1 text-xs leading-4 border-l-2 hover:brightness-95 ${task.completed ? 'opacity-60 line-through' : ''}">
+          class="calendar-task-chip cursor-grab active:cursor-grabbing w-full text-left rounded-md px-2 py-1 text-xs leading-4 border-l-2 hover:brightness-95 ${task.completed ? 'opacity-60 line-through' : ''}">
           <span class="block truncate">${task.completed ? '✓ ' : ''}${task.time ? `${escapeHtml(task.time)} · ` : ''}${escapeHtml(task.title)}</span>
           ${launchName ? `<span class="block truncate text-[10px] text-stone-500">${escapeHtml(launchName)}</span>` : ''}
         </button>
@@ -142,7 +144,7 @@ function renderCalendar() {
     }).join('');
 
     return `
-      <div class="${classes}" aria-label="${day.toLocaleDateString(undefined, { dateStyle: 'full' })}">
+      <div class="${classes}" aria-label="${day.toLocaleDateString(undefined, { dateStyle: 'full' })}" ondragover="allowCalendarTaskDrop(event)" ondragenter="highlightCalendarTaskDrop(event)" ondragleave="clearCalendarTaskDrop(event)" ondrop="dropCalendarTask(event, '${key}')">
         <div class="flex items-center justify-between gap-1">
           <button type="button" onclick="openCalendarTaskModal('${key}')" aria-label="Plan a task for ${day.toLocaleDateString(undefined, { dateStyle: 'full' })}"
             class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${isToday ? 'bg-brand-gold text-white' : isCurrentMonth ? 'text-stone-800 hover:bg-stone-100' : 'text-stone-400 hover:bg-stone-200'}">${day.getDate()}</button>
@@ -163,11 +165,121 @@ function renderCalendar() {
   });
   const openTasks = monthTasks.filter(task => !task.completed).length;
   document.getElementById('calendar-task-summary').textContent = `${monthTasks.length} task${monthTasks.length === 1 ? '' : 's'} this month · ${openTasks} remaining`;
+  renderCalendarTaskList();
 }
+
+function renderCalendarTaskList() {
+  const container = document.getElementById('calendar-task-list');
+  if (!container) return;
+
+  const occurrences = calendarTasks.flatMap(task => getTaskDates(task).map(date => ({ task, date })))
+    .sort((a, b) => a.date.localeCompare(b.date)
+      || (a.task.time || '').localeCompare(b.task.time || '')
+      || a.task.title.localeCompare(b.task.title));
+  const query = calendarTaskListQuery.trim().toLocaleLowerCase();
+  const filtered = occurrences.filter(({ task, date }) =>
+    !query || [task.title, task.notes, task.designName, date]
+      .some(value => String(value || '').toLocaleLowerCase().includes(query))
+  );
+  document.getElementById('calendar-task-list-count').textContent = `${filtered.length} date${filtered.length === 1 ? '' : 's'}`;
+
+  if (occurrences.length === 0) {
+    container.innerHTML = '<p class="p-5 text-sm text-stone-500">No tasks scheduled. Add one from the calendar or the Add Task button.</p>';
+    return;
+  }
+  if (filtered.length === 0) {
+    container.innerHTML = '<p class="p-5 text-sm text-stone-500">No tasks match that search.</p>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(({ task, date }) => {
+    const color = CALENDAR_TASK_COLORS[task.color] || CALENDAR_TASK_COLORS.gold;
+    const taskDate = dateFromKey(date);
+    const launchName = task.designName || getLaunchOptions().find(launch => String(launch.id) === String(task.designId))?.name;
+    return `
+      <button type="button" data-task-id="${escapeHtml(task.id)}" data-task-date="${date}" onclick="openCalendarTaskFromList(this.dataset.taskId, this.dataset.taskDate)"
+        class="w-full text-left flex items-start gap-3 px-4 py-3 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none border-l-[3px] ${task.completed ? 'opacity-60' : ''}"
+        style="border-left-color:${color.border}">
+        <span class="w-11 shrink-0 text-center">
+          <span class="block text-[10px] font-semibold uppercase text-stone-500">${taskDate.toLocaleDateString(undefined, { weekday: 'short' })}</span>
+          <span class="block text-lg leading-6 font-bold text-stone-800">${taskDate.getDate()}</span>
+          <span class="block text-[10px] text-stone-500">${taskDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
+        </span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-sm font-semibold ${task.completed ? 'line-through text-stone-500' : 'text-stone-900'}">${task.completed ? '✓ ' : ''}${escapeHtml(task.title)}</span>
+          <span class="block mt-0.5 truncate text-xs text-stone-500">${task.time ? `${escapeHtml(task.time)} · ` : ''}${escapeHtml(launchName || task.notes || 'Launch task')}</span>
+        </span>
+      </button>
+    `;
+  }).join('');
+}
+
+window.filterCalendarTaskList = (query) => {
+  calendarTaskListQuery = query;
+  renderCalendarTaskList();
+};
+
+window.openCalendarTaskFromList = (taskId, date) => {
+  const taskDate = dateFromKey(date);
+  calendarMonth = new Date(taskDate.getFullYear(), taskDate.getMonth(), 1);
+  renderCalendar();
+  openCalendarTaskModal(date, taskId);
+};
 
 window.shiftCalendarMonth = (amount) => {
   calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + amount, 1);
   renderCalendar();
+};
+
+window.startCalendarTaskDrag = (event, taskId, sourceDate) => {
+  draggedCalendarTask = { taskId, sourceDate };
+  event.currentTarget.classList.add('calendar-task-dragging');
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', JSON.stringify(draggedCalendarTask));
+  document.getElementById('calendar-drag-status').textContent = `Moving ${calendarTasks.find(task => task.id === taskId)?.title || 'task'}. Drop it on a day.`;
+};
+
+window.allowCalendarTaskDrop = (event) => {
+  if (!draggedCalendarTask) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+};
+
+window.highlightCalendarTaskDrop = (event) => {
+  if (!draggedCalendarTask) return;
+  event.preventDefault();
+  event.currentTarget.classList.add('calendar-day-drop-target');
+};
+
+window.clearCalendarTaskDrop = (event) => {
+  if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) return;
+  event.currentTarget.classList.remove('calendar-day-drop-target');
+};
+
+window.dropCalendarTask = (event, targetDate) => {
+  event.preventDefault();
+  event.currentTarget.classList.remove('calendar-day-drop-target');
+  let dragData = draggedCalendarTask;
+  try {
+    dragData = JSON.parse(event.dataTransfer.getData('text/plain')) || dragData;
+  } catch (error) {}
+  draggedCalendarTask = null;
+
+  const task = calendarTasks.find(item => item.id === dragData?.taskId);
+  if (!task) return;
+  const taskDates = getTaskDates(task);
+  if (!taskDates.includes(dragData.sourceDate) || dragData.sourceDate === targetDate) return;
+
+  const dates = [...new Set([...taskDates.filter(date => date !== dragData.sourceDate), targetDate])].sort();
+  const movedTask = { ...task, date: dates[0], dates };
+  if (!saveCalendarTasks(calendarTasks.map(item => item.id === task.id ? movedTask : item))) return;
+  document.getElementById('calendar-drag-status').textContent = `Moved ${task.title} to ${dateFromKey(targetDate).toLocaleDateString(undefined, { dateStyle: 'full' })}.`;
+  renderCalendar();
+};
+
+window.endCalendarTaskDrag = (event) => {
+  event.currentTarget.classList.remove('calendar-task-dragging');
+  draggedCalendarTask = null;
 };
 
 window.goToCalendarToday = () => {
