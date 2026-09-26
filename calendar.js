@@ -125,7 +125,7 @@ function renderCalendar() {
       .filter(task => getTaskDates(task).includes(key))
       .sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.title.localeCompare(b.title));
     const classes = [
-      'min-h-[84px] p-1.5 border-r border-b border-stone-200 flex flex-col gap-1',
+      'min-h-[112px] p-2 border-r border-b border-stone-200 flex flex-col gap-1.5',
       isCurrentMonth ? 'bg-white' : 'bg-stone-50/70',
       isToday ? 'ring-2 ring-inset ring-brand-gold' : ''
     ].filter(Boolean).join(' ');
@@ -151,7 +151,7 @@ function renderCalendar() {
           <button type="button" onclick="openCalendarTaskModal('${key}')" aria-label="Add task on ${day.toLocaleDateString(undefined, { dateStyle: 'full' })}"
             class="w-8 h-8 rounded-lg flex items-center justify-center text-lg text-stone-400 hover:text-stone-900 hover:bg-stone-100">+</button>
         </div>
-        <div class="max-h-[52px] overflow-y-auto space-y-1 scrollbar-thin">${taskItems}</div>
+        <div class="space-y-1">${taskItems}</div>
       </div>
     `;
   });
