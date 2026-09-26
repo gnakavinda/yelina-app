@@ -73,6 +73,10 @@
         class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
         <span>Database Table</span>
       </button>
+      <button onclick="switchTab('vendors')" id="tab-vendors"
+        class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
+        <span>Vendors</span>
+      </button>
       <button onclick="switchTab('admin')" id="tab-admin"
         class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
         <span>Settings</span>
@@ -153,26 +157,86 @@
       </div>
     </section>
 
+    <section id="view-vendors" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 class="font-serif text-2xl font-bold text-stone-900">Vendors</h2>
+          <p class="text-stone-600 text-sm">Manage the partners who support your production process.</p>
+        </div>
+        <button onclick="openVendorModal()"
+          class="bg-brand-gold hover:bg-brand-goldDark text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
+          + Add Vendor
+        </button>
+      </div>
+      <div id="vendor-controls" class="hidden flex flex-col sm:flex-row gap-3">
+        <label class="flex-1">
+          <span class="text-xs font-semibold uppercase text-stone-500 block mb-1">Search vendors</span>
+          <input id="vendor-search" type="search" oninput="searchVendors(this.value)"
+            class="w-full p-2.5 border border-stone-300 rounded-xl text-sm" placeholder="Name, category, or note">
+        </label>
+        <label class="w-full sm:w-64">
+          <span class="text-xs font-semibold uppercase text-stone-500 block mb-1">Category</span>
+          <select id="vendor-category-filter" onchange="filterVendorsByCategory(this.value)"
+            class="w-full p-2.5 border border-stone-300 rounded-xl text-sm bg-white">
+            <option value="">All categories</option>
+          </select>
+        </label>
+      </div>
+      <div id="vendor-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
     <section id="view-admin" class="hidden space-y-6">
+      <div>
+        <h2 class="font-serif text-2xl font-bold text-stone-900">Settings</h2>
+        <p class="text-stone-600 text-sm">Configure workflow steps and vendor categories.</p>
+      </div>
       <div class="bg-white rounded-2xl p-6 shadow-sm border border-stone-200">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div class="flex justify-between items-center gap-4">
           <div>
-            <h2 class="font-serif text-2xl font-bold text-stone-900">Settings</h2>
-            <p class="text-stone-600 text-sm">Workflow Admin — add, edit, save, and remove production process steps.</p>
+            <h3 class="font-serif text-xl font-bold text-stone-900">Workflow Process Settings</h3>
           </div>
-          <div class="flex gap-3">
-            <button onclick="addWorkflowStep()"
-              class="bg-brand-gold hover:bg-brand-goldDark text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
-              + Add Process
-            </button>
-            <button onclick="saveWorkflowChanges()"
-              class="bg-stone-900 hover:bg-stone-800 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
-              Save Workflow
-            </button>
-          </div>
+          <button type="button" onclick="toggleSettingsSection('workflow-settings-content', this)" aria-label="Collapse Workflow Process Settings" title="Collapse Workflow Process Settings" aria-expanded="true" aria-controls="workflow-settings-content"
+            class="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg text-xl text-stone-500 hover:text-stone-900 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-brand-gold">▲</button>
         </div>
 
-        <div id="admin-steps-container" class="space-y-4"></div>
+        <div id="workflow-settings-content" class="mt-5">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <p class="text-stone-600 text-sm">Add, edit, and remove production process steps.</p>
+            <div class="flex gap-3">
+              <button onclick="addWorkflowStep()"
+                class="bg-brand-gold hover:bg-brand-goldDark text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
+                + Add Process
+              </button>
+              <button onclick="saveWorkflowChanges()"
+                class="bg-stone-900 hover:bg-stone-800 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
+                Save Workflow
+              </button>
+            </div>
+          </div>
+          <div id="admin-steps-container" class="space-y-4"></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-stone-200">
+        <div class="flex justify-between items-center gap-4">
+          <h3 class="font-serif text-xl font-bold text-stone-900">Vendor Settings</h3>
+          <button type="button" onclick="toggleSettingsSection('vendor-settings-content', this)" aria-label="Collapse Vendor Settings" title="Collapse Vendor Settings" aria-expanded="true" aria-controls="vendor-settings-content"
+            class="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg text-xl text-stone-500 hover:text-stone-900 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-brand-gold">▲</button>
+        </div>
+        <div id="vendor-settings-content" class="mt-5 space-y-5">
+          <p class="text-stone-600 text-sm">Add, rename, or remove categories used by your vendors.</p>
+          <form onsubmit="saveVendorCategory(event)" class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
+            <label class="flex-1">
+              <span class="text-xs font-semibold uppercase text-stone-500 block mb-1">Category Name</span>
+              <input id="vendor-category-name" required maxlength="80" class="w-full p-2.5 border border-stone-300 rounded-xl text-sm" placeholder="e.g. Embroidery">
+            </label>
+            <div class="flex gap-2">
+              <button id="vendor-category-submit" type="submit" class="bg-brand-gold hover:bg-brand-goldDark text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">Add Category</button>
+              <button id="vendor-category-cancel" type="button" onclick="cancelVendorCategoryEdit()" class="hidden px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-sm">Cancel</button>
+            </div>
+          </form>
+          <div id="vendor-categories-container" class="divide-y divide-stone-200 border-y border-stone-200"></div>
+        </div>
       </div>
     </section>
   </main>
@@ -222,6 +286,39 @@
         <button onclick="saveDesign()" class="px-4 py-2 rounded-xl bg-brand-gold text-white hover:bg-brand-goldDark">Save Design</button>
       </div>
     </div>
+  </div>
+
+  <div id="modal-vendor" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="vendor-modal-title">
+    <form onsubmit="saveVendor(event)" class="bg-white rounded-2xl w-full max-w-xl p-6 shadow-2xl border border-stone-200">
+      <div class="flex justify-between items-center mb-5">
+        <h3 id="vendor-modal-title" class="font-serif text-2xl font-bold text-stone-900">Add Vendor</h3>
+        <button type="button" onclick="closeVendorModal()" aria-label="Close vendor form" class="text-stone-500 hover:text-stone-900 text-2xl">×</button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label for="vendor-name" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Vendor Name</label>
+          <input id="vendor-name" required maxlength="120" class="w-full p-3 border border-stone-300 rounded-xl text-sm" placeholder="e.g. Lanka Textiles">
+        </div>
+        <div>
+          <label for="vendor-category" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Category</label>
+          <select id="vendor-category" required class="w-full p-3 border border-stone-300 rounded-xl text-sm bg-white"></select>
+        </div>
+        <fieldset>
+          <legend class="text-xs font-semibold uppercase text-stone-500 block mb-1">Rating</legend>
+          <div id="vendor-rating-input" class="flex items-center gap-1" role="group" aria-label="Vendor rating"></div>
+        </fieldset>
+        <div>
+          <label for="vendor-notes" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Notes</label>
+          <textarea id="vendor-notes" rows="4" maxlength="1000" class="w-full p-3 border border-stone-300 rounded-xl text-sm" placeholder="Add a note about this vendor"></textarea>
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end gap-3">
+        <button type="button" onclick="closeVendorModal()" class="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100">Cancel</button>
+        <button type="submit" class="px-4 py-2 rounded-xl bg-brand-gold text-white hover:bg-brand-goldDark">Save Vendor</button>
+      </div>
+    </form>
   </div>
 
   <div id="modal-config" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">

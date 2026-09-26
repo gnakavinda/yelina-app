@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+import { initializeVendorManager } from './vendor-manager.js';
 
 const DEFAULT_STEPS = [
   {
@@ -241,6 +242,17 @@ window.switchTab = (tab) => {
   document.getElementById(`view-${tab}`).classList.remove('hidden');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('bg-white', 'shadow-sm', 'font-semibold'));
   document.getElementById(`tab-${tab}`).classList.add('bg-white', 'shadow-sm', 'font-semibold');
+};
+
+window.toggleSettingsSection = (contentId, button) => {
+  const content = document.getElementById(contentId);
+  const expanded = button.getAttribute('aria-expanded') === 'true';
+  const sectionName = contentId === 'workflow-settings-content' ? 'Workflow Process Settings' : 'Vendor Settings';
+  content.classList.toggle('hidden', expanded);
+  button.setAttribute('aria-expanded', String(!expanded));
+  button.setAttribute('aria-label', `${expanded ? 'Expand' : 'Collapse'} ${sectionName}`);
+  button.title = `${expanded ? 'Expand' : 'Collapse'} ${sectionName}`;
+  button.innerText = expanded ? '▼' : '▲';
 };
 
 function renderAdminSteps() {
@@ -698,6 +710,7 @@ window.exportCSV = () => {
 };
 
 initDatabase();
+initializeVendorManager();
 renderAdminSteps();
 renderSteps();
 renderLaunches();
