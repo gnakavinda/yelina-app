@@ -181,35 +181,54 @@ function renderCalendarTaskList() {
     !query || [task.title, task.notes, task.designName, date]
       .some(value => String(value || '').toLocaleLowerCase().includes(query))
   );
-  document.getElementById('calendar-task-list-count').textContent = `${filtered.length} date${filtered.length === 1 ? '' : 's'}`;
 
   if (occurrences.length === 0) {
+    document.getElementById('calendar-task-list-count').textContent = '0 dates';
     container.innerHTML = '<p class="p-5 text-sm text-stone-500">No tasks scheduled. Add one from the calendar or the Add Task button.</p>';
     return;
   }
   if (filtered.length === 0) {
+    document.getElementById('calendar-task-list-count').textContent = '0 dates';
     container.innerHTML = '<p class="p-5 text-sm text-stone-500">No tasks match that search.</p>';
     return;
   }
 
-  container.innerHTML = filtered.map(({ task, date }) => {
-    const color = CALENDAR_TASK_COLORS[task.color] || CALENDAR_TASK_COLORS.gold;
+  const dateGroups = [];
+  for (const occurrence of filtered) {
+    let group = dateGroups[dateGroups.length - 1];
+    if (!group || group.date !== occurrence.date) {
+      group = { date: occurrence.date, tasks: [] };
+      dateGroups.push(group);
+    }
+    group.tasks.push(occurrence.task);
+  }
+  document.getElementById('calendar-task-list-count').textContent = `${dateGroups.length} date${dateGroups.length === 1 ? '' : 's'}`;
+
+  container.innerHTML = dateGroups.map(({ date, tasks }) => {
     const taskDate = dateFromKey(date);
-    const launchName = task.designName || getLaunchOptions().find(launch => String(launch.id) === String(task.designId))?.name;
+    const taskRows = tasks.map(task => {
+      const color = CALENDAR_TASK_COLORS[task.color] || CALENDAR_TASK_COLORS.gold;
+      const launchName = task.designName || getLaunchOptions().find(launch => String(launch.id) === String(task.designId))?.name;
+      return `
+        <button type="button" data-task-id="${escapeHtml(task.id)}" data-task-date="${date}" onclick="openCalendarTaskFromList(this.dataset.taskId, this.dataset.taskDate)"
+          class="w-full text-left flex items-start gap-3 px-3 py-2.5 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none border-l-[3px] ${task.completed ? 'opacity-60' : ''}"
+          style="border-left-color:${color.border}">
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-semibold ${task.completed ? 'line-through text-stone-500' : 'text-stone-900'}">${task.completed ? '✓ ' : ''}${escapeHtml(task.title)}</span>
+            <span class="block mt-0.5 truncate text-xs text-stone-500">${task.time ? `${escapeHtml(task.time)} · ` : ''}${escapeHtml(launchName || task.notes || 'Launch task')}</span>
+          </span>
+        </button>
+      `;
+    }).join('');
+
     return `
-      <button type="button" data-task-id="${escapeHtml(task.id)}" data-task-date="${date}" onclick="openCalendarTaskFromList(this.dataset.taskId, this.dataset.taskDate)"
-        class="w-full text-left flex items-start gap-3 px-4 py-3 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none border-l-[3px] ${task.completed ? 'opacity-60' : ''}"
-        style="border-left-color:${color.border}">
-        <span class="w-11 shrink-0 text-center">
-          <span class="block text-[10px] font-semibold uppercase text-stone-500">${taskDate.toLocaleDateString(undefined, { weekday: 'short' })}</span>
-          <span class="block text-lg leading-6 font-bold text-stone-800">${taskDate.getDate()}</span>
-          <span class="block text-[10px] text-stone-500">${taskDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
-        </span>
-        <span class="min-w-0 flex-1">
-          <span class="block truncate text-sm font-semibold ${task.completed ? 'line-through text-stone-500' : 'text-stone-900'}">${task.completed ? '✓ ' : ''}${escapeHtml(task.title)}</span>
-          <span class="block mt-0.5 truncate text-xs text-stone-500">${task.time ? `${escapeHtml(task.time)} · ` : ''}${escapeHtml(launchName || task.notes || 'Launch task')}</span>
-        </span>
-      </button>
+      <section class="border-b border-stone-100 last:border-b-0">
+        <div class="flex items-center justify-between gap-2 px-4 py-2 bg-stone-50">
+          <h4 class="text-xs font-semibold uppercase text-stone-600">${taskDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</h4>
+          <span class="text-[10px] text-stone-500">${tasks.length} task${tasks.length === 1 ? '' : 's'}</span>
+        </div>
+        ${taskRows}
+      </section>
     `;
   }).join('');
 }
