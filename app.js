@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 import { initializeVendorManager } from './vendor-manager.js';
+import { initializeCalendar } from './calendar.js';
 
 const DEFAULT_STEPS = [
   {
@@ -711,6 +712,7 @@ window.exportCSV = () => {
 
 initDatabase();
 initializeVendorManager();
+initializeCalendar(() => launches);
 renderAdminSteps();
 renderSteps();
 renderLaunches();

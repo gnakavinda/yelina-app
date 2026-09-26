@@ -69,6 +69,10 @@
         class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
         <span>Launch Tracker</span>
       </button>
+      <button onclick="switchTab('deadlines')" id="tab-deadlines"
+        class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
+        <span>Deadlines</span>
+      </button>
       <button onclick="switchTab('database')" id="tab-database"
         class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
         <span>Database Table</span>
@@ -122,6 +126,44 @@
       </div>
 
       <div id="pipeline-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </section>
+
+    <section id="view-deadlines" class="hidden space-y-5 md:w-screen md:relative md:left-1/2 md:-translate-x-1/2 px-1 sm:px-3">
+      <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+        <div>
+          <h2 class="font-serif text-2xl font-bold text-stone-900">Launch Deadlines</h2>
+          <p class="text-stone-600 text-sm">Plan launch tasks by date and keep each milestone in view.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" onclick="shiftCalendarMonth(-1)" aria-label="Previous month" title="Previous month"
+            class="w-10 h-10 flex items-center justify-center rounded-lg border border-stone-300 bg-white text-lg text-stone-700 hover:bg-stone-50">‹</button>
+          <button type="button" onclick="goToCalendarToday()"
+            class="h-10 px-4 rounded-lg border border-stone-300 bg-white text-sm font-semibold text-stone-700 hover:bg-stone-50">Today</button>
+          <button type="button" onclick="shiftCalendarMonth(1)" aria-label="Next month" title="Next month"
+            class="w-10 h-10 flex items-center justify-center rounded-lg border border-stone-300 bg-white text-lg text-stone-700 hover:bg-stone-50">›</button>
+          <h3 id="calendar-month-label" class="min-w-48 font-serif text-xl font-bold text-stone-900 text-center"></h3>
+          <button type="button" onclick="openCalendarTaskModal()"
+            class="h-10 px-4 rounded-lg bg-brand-gold hover:bg-brand-goldDark text-sm font-semibold text-white">+ Add Task</button>
+        </div>
+      </div>
+
+      <div class="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <div class="min-w-[840px]">
+            <div class="grid grid-cols-7 border-b border-stone-200 bg-stone-100" aria-hidden="true">
+              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Sunday</div>
+              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Monday</div>
+              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Tuesday</div>
+              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Wednesday</div>
+              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Thursday</div>
+              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Friday</div>
+              <div class="p-3 text-xs font-semibold uppercase text-stone-600">Saturday</div>
+            </div>
+            <div id="calendar-grid" class="grid grid-cols-7" aria-label="Monthly calendar"></div>
+          </div>
+        </div>
+      </div>
+      <p id="calendar-task-summary" class="text-sm text-stone-500"></p>
     </section>
 
     <section id="view-database" class="hidden space-y-6">
@@ -317,6 +359,54 @@
       <div class="mt-6 flex justify-end gap-3">
         <button type="button" onclick="closeVendorModal()" class="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100">Cancel</button>
         <button type="submit" class="px-4 py-2 rounded-xl bg-brand-gold text-white hover:bg-brand-goldDark">Save Vendor</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="modal-calendar-task" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="calendar-task-modal-title">
+    <form onsubmit="saveCalendarTask(event)" class="bg-white rounded-2xl w-full max-w-xl p-6 shadow-2xl border border-stone-200 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-5">
+        <h3 id="calendar-task-modal-title" class="font-serif text-2xl font-bold text-stone-900">Add Launch Task</h3>
+        <button type="button" onclick="closeCalendarTaskModal()" aria-label="Close task form" class="text-stone-500 hover:text-stone-900 text-2xl">×</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label for="calendar-task-title" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Task</label>
+          <input id="calendar-task-title" required maxlength="140" class="w-full p-3 border border-stone-300 rounded-xl text-sm" placeholder="e.g. Approve final product photos">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="calendar-task-date" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Date</label>
+            <input id="calendar-task-date" type="date" required class="w-full p-3 border border-stone-300 rounded-xl text-sm">
+          </div>
+          <div>
+            <label for="calendar-task-time" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Time (optional)</label>
+            <input id="calendar-task-time" type="time" class="w-full p-3 border border-stone-300 rounded-xl text-sm">
+          </div>
+        </div>
+        <div>
+          <label for="calendar-task-design" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Related Design (optional)</label>
+          <select id="calendar-task-design" class="w-full p-3 border border-stone-300 rounded-xl text-sm bg-white"></select>
+        </div>
+        <fieldset>
+          <legend class="text-xs font-semibold uppercase text-stone-500 block mb-2">Task Color</legend>
+          <div id="calendar-task-colors" class="flex flex-wrap items-center gap-3" role="group" aria-label="Task color"></div>
+        </fieldset>
+        <div>
+          <label for="calendar-task-notes" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Notes</label>
+          <textarea id="calendar-task-notes" rows="3" maxlength="1000" class="w-full p-3 border border-stone-300 rounded-xl text-sm" placeholder="Add planning details"></textarea>
+        </div>
+        <label id="calendar-task-completed-wrap" class="hidden flex items-center gap-2 text-sm text-stone-700">
+          <input id="calendar-task-completed" type="checkbox" class="w-4 h-4 accent-emerald-600">
+          Mark this task complete
+        </label>
+      </div>
+      <div class="mt-6 flex justify-between items-center gap-3">
+        <button id="calendar-task-remove" type="button" onclick="removeCalendarTask()" class="hidden px-4 py-2 rounded-xl border border-red-200 text-red-700 hover:bg-red-50">Remove</button>
+        <div class="ml-auto flex gap-3">
+          <button type="button" onclick="closeCalendarTaskModal()" class="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-brand-gold text-white hover:bg-brand-goldDark">Save Task</button>
+        </div>
       </div>
     </form>
   </div>
