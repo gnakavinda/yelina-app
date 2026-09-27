@@ -54,7 +54,8 @@ let selectedCalendarTaskDates = [];
 let selectedCalendarTaskColor = 'gold';
 let draggedCalendarTask = null;
 let calendarTaskListQuery = '';
-let getLaunches = () => [];
+let getDesigns = () => [];
+let getLaunchGroups = () => [];
 let calendarDatabase = null;
 let calendarCloudReady = false;
 
@@ -95,18 +96,44 @@ function syncCalendarTaskChanges(previousTasks, nextTasks) {
   });
 }
 
-function getLaunchOptions() {
-  const launches = getLaunches();
-  return Array.isArray(launches) ? launches : [];
+function getDesignOptions() {
+  const designs = getDesigns();
+  return Array.isArray(designs) ? designs : [];
 }
 
-function renderDesignOptions(selectedId = '') {
-  const select = document.getElementById('calendar-task-design');
-  const launches = getLaunchOptions();
-  select.innerHTML = '<option value="">No related design</option>' + launches.map(launch =>
-    `<option value="${escapeHtml(launch.id)}">${escapeHtml(launch.code ? `${launch.code} - ${launch.name}` : launch.name || 'Untitled design')}</option>`
-  ).join('');
-  select.value = launches.some(launch => String(launch.id) === String(selectedId)) ? selectedId : '';
+function getLaunchGroupOptions() {
+  const groups = getLaunchGroups();
+  return Array.isArray(groups) ? groups : [];
+}
+
+function renderRelatedOptions(selectedValue = '') {
+  const select = document.getElementById('calendar-task-related');
+  const launchOptions = getLaunchGroupOptions().map(launch => ({
+    type: 'launch',
+    id: launch.id,
+    label: `Launch · ${launch.name}`
+  }));
+  const designOptions = getDesignOptions().map(design => ({
+    type: 'design',
+    id: design.id,
+    label: `Design · ${design.code ? `${design.code} - ` : ''}${design.name || 'Untitled design'}`
+  }));
+  const options = [...launchOptions, ...designOptions];
+  select.innerHTML = '<option value="">No related item</option>' + options.map(option => {
+    const value = JSON.stringify({ type: option.type, id: option.id });
+    return `<option value="${escapeHtml(value)}">${escapeHtml(option.label)}</option>`;
+  }).join('');
+  select.value = options.some(option => JSON.stringify({ type: option.type, id: option.id }) === selectedValue) ? selectedValue : '';
+}
+
+function getTaskRelatedName(task) {
+  if (task.relatedType === 'launch') {
+    return getLaunchGroupOptions().find(launch => String(launch.id) === String(task.relatedId))?.name || task.relatedName || '';
+  }
+  const designId = task.relatedType === 'design' ? task.relatedId : task.designId;
+  const design = getDesignOptions().find(item => String(item.id) === String(designId));
+  if (design) return `${design.code ? `${design.code} - ` : ''}${design.name}`;
+  return task.relatedName || task.designName || '';
 }
 
 function renderTaskColorOptions() {
@@ -161,14 +188,14 @@ function renderCalendar() {
     ].filter(Boolean).join(' ');
 
     const taskItems = dayTasks.map(task => {
-      const launchName = task.designName || getLaunchOptions().find(launch => String(launch.id) === String(task.designId))?.name;
+      const relatedName = getTaskRelatedName(task);
       const color = CALENDAR_TASK_COLORS[task.color] || CALENDAR_TASK_COLORS.gold;
       return `
         <button type="button" draggable="true" ondragstart="startCalendarTaskDrag(event, '${escapeHtml(task.id)}', '${key}')" ondragend="endCalendarTaskDrag(event)" onclick="openCalendarTaskModal('', '${escapeHtml(task.id)}')" aria-label="${escapeHtml(task.title)}. Drag to move to another day, or select to edit." title="Drag to move: ${escapeHtml(task.title)}${task.notes ? ` - ${escapeHtml(task.notes)}` : ''}"
           style="--task-background:${color.background}; --task-border:${color.border}; --task-foreground:${color.foreground};"
           class="calendar-task-chip cursor-grab active:cursor-grabbing w-full text-left rounded-md px-2 py-1 text-xs leading-4 border-l-2 hover:brightness-95 ${task.completed ? 'opacity-60 line-through' : ''}">
           <span class="block truncate">${task.completed ? '✓ ' : ''}${task.time ? `${escapeHtml(task.time)} · ` : ''}${escapeHtml(task.title)}</span>
-          ${launchName ? `<span class="block truncate text-[10px] text-stone-500">${escapeHtml(launchName)}</span>` : ''}
+          ${relatedName ? `<span class="block truncate text-[10px] text-stone-500">${escapeHtml(relatedName)}</span>` : ''}
         </button>
       `;
     }).join('');
@@ -208,7 +235,7 @@ function renderCalendarTaskList() {
       || a.task.title.localeCompare(b.task.title));
   const query = calendarTaskListQuery.trim().toLocaleLowerCase();
   const filtered = occurrences.filter(({ task, date }) =>
-    !query || [task.title, task.notes, task.designName, date]
+    !query || [task.title, task.notes, getTaskRelatedName(task), date]
       .some(value => String(value || '').toLocaleLowerCase().includes(query))
   );
 
@@ -238,14 +265,14 @@ function renderCalendarTaskList() {
     const taskDate = dateFromKey(date);
     const taskRows = tasks.map(task => {
       const color = CALENDAR_TASK_COLORS[task.color] || CALENDAR_TASK_COLORS.gold;
-      const launchName = task.designName || getLaunchOptions().find(launch => String(launch.id) === String(task.designId))?.name;
+      const relatedName = getTaskRelatedName(task);
       return `
         <button type="button" data-task-id="${escapeHtml(task.id)}" data-task-date="${date}" onclick="openCalendarTaskFromList(this.dataset.taskId, this.dataset.taskDate)"
           class="w-full text-left flex items-start gap-3 px-3 py-2.5 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none border-l-[3px] ${task.completed ? 'opacity-60' : ''}"
           style="border-left-color:${color.border}">
           <span class="min-w-0 flex-1">
             <span class="block truncate text-sm font-semibold ${task.completed ? 'line-through text-stone-500' : 'text-stone-900'}">${task.completed ? '✓ ' : ''}${escapeHtml(task.title)}</span>
-            <span class="block mt-0.5 truncate text-xs text-stone-500">${task.time ? `${escapeHtml(task.time)} · ` : ''}${escapeHtml(launchName || task.notes || 'Launch task')}</span>
+            <span class="block mt-0.5 truncate text-xs text-stone-500">${task.time ? `${escapeHtml(task.time)} · ` : ''}${escapeHtml(relatedName || task.notes || 'Launch task')}</span>
           </span>
         </button>
       `;
@@ -350,7 +377,9 @@ window.openCalendarTaskModal = (date = '', taskId = null) => {
   document.getElementById('calendar-task-completed').checked = !!task?.completed;
   document.getElementById('calendar-task-completed-wrap').classList.toggle('hidden', !task);
   document.getElementById('calendar-task-remove').classList.toggle('hidden', !task);
-  renderDesignOptions(task?.designId || '');
+  const relatedType = task?.relatedType || (task?.designId ? 'design' : '');
+  const relatedId = task?.relatedId || task?.designId || '';
+  renderRelatedOptions(relatedType && relatedId ? JSON.stringify({ type: relatedType, id: relatedId }) : '');
   renderTaskColorOptions();
   renderSelectedTaskDates();
   document.getElementById('modal-calendar-task').classList.remove('hidden');
@@ -396,16 +425,26 @@ window.saveCalendarTask = (event) => {
     return;
   }
 
-  const designId = document.getElementById('calendar-task-design').value;
-  const selectedDesign = getLaunchOptions().find(launch => String(launch.id) === String(designId));
+  let relatedItem = null;
+  try {
+    relatedItem = JSON.parse(document.getElementById('calendar-task-related').value || 'null');
+  } catch (error) {}
+  const relatedRecord = relatedItem?.type === 'launch'
+    ? getLaunchGroupOptions().find(launch => String(launch.id) === String(relatedItem.id))
+    : relatedItem?.type === 'design'
+      ? getDesignOptions().find(design => String(design.id) === String(relatedItem.id))
+      : null;
   const task = {
     id: editingCalendarTaskId || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
     title,
     date: dates[0],
     dates,
     time: document.getElementById('calendar-task-time').value,
-    designId,
-    designName: selectedDesign?.name || '',
+    relatedType: relatedRecord ? relatedItem.type : '',
+    relatedId: relatedRecord?.id || '',
+    relatedName: relatedRecord ? `${relatedItem.type === 'design' && relatedRecord.code ? `${relatedRecord.code} - ` : ''}${relatedRecord.name}` : '',
+    designId: relatedItem?.type === 'design' ? relatedItem.id : '',
+    designName: relatedItem?.type === 'design' ? relatedRecord?.name || '' : '',
     notes: document.getElementById('calendar-task-notes').value.trim(),
     color: selectedCalendarTaskColor,
     completed: document.getElementById('calendar-task-completed').checked
@@ -433,8 +472,9 @@ window.removeCalendarTask = () => {
   closeCalendarTaskModal();
 };
 
-export function initializeCalendar(launchesProvider, databaseProvider = () => null) {
-  getLaunches = launchesProvider;
+export function initializeCalendar(designsProvider, databaseProvider = () => null, launchGroupsProvider = () => []) {
+  getDesigns = designsProvider;
+  getLaunchGroups = launchGroupsProvider;
   calendarTasks = loadCalendarTasks();
   renderCalendar();
 

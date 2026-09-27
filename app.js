@@ -1,7 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
-import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 import { initializeVendorManager } from './vendor-manager.js';
 import { initializeCalendar } from './calendar.js';
+import { initializeCostCalculator, refreshCostCalculator } from './cost-calculator.js';
 
 const DEFAULT_STEPS = [
   {
@@ -98,12 +99,33 @@ function loadWorkflowSteps() {
 }
 
 let STEPS = loadWorkflowSteps();
-let launches = [];
+let designs = [];
+let launchGroups = loadLaunchGroups();
 let selectedDesignId = null;
 let editingDesignId = null;
+let editingLaunchId = null;
 let expandedStepId = 1;
 let db = null;
 let selectedImagesBase64 = [];
+const migratingDesignIds = new Set();
+
+function loadLaunchGroups() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('yelina_launch_groups') || '[]');
+    return Array.isArray(saved) ? saved : [];
+  } catch (error) {
+    console.warn('Failed to load launch groups from localStorage', error);
+    return [];
+  }
+}
+
+function saveLocalLaunchGroups() {
+  try {
+    localStorage.setItem('yelina_launch_groups', JSON.stringify(launchGroups));
+  } catch (error) {
+    console.warn('Failed to save launch groups to localStorage', error);
+  }
+}
 
 const INJECTED_CONFIG = {
   apiKey: "ENV_FIREBASE_API_KEY",
@@ -136,13 +158,41 @@ function initDatabase() {
       const app = initializeApp(config, "yelinaApp");
       db = getFirestore(app);
 
-      onSnapshot(collection(db, "yelina_launches"), (snapshot) => {
-        launches = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      let isInitialLaunchGroupSnapshot = true;
+      onSnapshot(collection(db, 'yelina_launch_groups'), (snapshot) => {
+        const cloudGroups = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const localGroups = isInitialLaunchGroupSnapshot
+          ? launchGroups.filter(group => !cloudGroups.some(cloudGroup => String(cloudGroup.id) === String(group.id)))
+          : [];
+        isInitialLaunchGroupSnapshot = false;
+        launchGroups = [...cloudGroups, ...localGroups];
+        localGroups.forEach(group => {
+          setDoc(doc(db, 'yelina_launch_groups', group.id), group).then(() => {
+            try {
+              const cachedGroups = loadLaunchGroups().filter(item => String(item.id) !== String(group.id));
+              localStorage.setItem('yelina_launch_groups', JSON.stringify(cachedGroups));
+            } catch (error) {
+              console.warn('Failed to clear synced launch group from local cache', error);
+            }
+          }, error => {
+            console.error('Failed to sync local launch group to Firestore', error);
+          });
+        });
+        renderLaunches();
+        renderDesignSelector();
+      }, (err) => {
+        console.error('Firestore launch group listen error:', err);
+        setOfflineState();
+      });
 
-        if (!selectedDesignId && launches.length > 0) {
-          selectedDesignId = launches[0].id;
-        } else if (selectedDesignId && !launches.some(l => l.id === selectedDesignId)) {
-          selectedDesignId = launches[0]?.id || null;
+      onSnapshot(collection(db, "yelina_launches"), (snapshot) => {
+        designs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        migrateLegacyDesigns(designs);
+
+        if (!selectedDesignId && designs.length > 0) {
+          selectedDesignId = designs[0].id;
+        } else if (selectedDesignId && !designs.some(l => l.id === selectedDesignId)) {
+          selectedDesignId = designs[0]?.id || null;
         }
 
         renderDesignSelector();
@@ -170,6 +220,24 @@ function setOfflineState() {
   document.getElementById('sync-dot').className = 'w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse';
   document.getElementById('sync-text').innerText = 'Offline Local (Tap to Fix)';
   document.getElementById('sync-status-btn').className = 'flex items-center space-x-2 px-3 py-1.5 rounded-full border border-amber-200 bg-amber-50 text-amber-800 text-xs font-medium shadow-sm';
+}
+
+function migrateLegacyDesigns(currentDesigns) {
+  if (!db) return;
+  currentDesigns.filter(design => !design.launchId && !migratingDesignIds.has(design.id)).forEach(design => {
+    migratingDesignIds.add(design.id);
+    const launchId = `legacy-${design.id}`;
+    const launchGroup = {
+      name: `${design.name || design.code || 'Design'} Launch`,
+      date: design.date || '',
+      notes: '',
+      migratedFromDesign: true
+    };
+    setDoc(doc(db, 'yelina_launch_groups', launchId), launchGroup, { merge: true })
+      .then(() => updateDoc(doc(db, 'yelina_launches', design.id), { launchId }))
+      .catch(error => console.error(`Failed to migrate design ${design.id} to a launch group`, error))
+      .finally(() => migratingDesignIds.delete(design.id));
+  });
 }
 
 function processImageFile(file) {
@@ -397,7 +465,7 @@ function calculateStage(tasks) {
 
 window.toggleChecklistItem = async (stepId, index) => {
   if (!selectedDesignId) return;
-  const design = launches.find(l => l.id === selectedDesignId);
+  const design = designs.find(l => l.id === selectedDesignId);
   if (!design) return;
 
   if (!design.completedTasks) design.completedTasks = {};
@@ -423,8 +491,8 @@ window.deleteDesign = async (id) => {
   if (db) {
     await deleteDoc(doc(db, "yelina_launches", id));
   } else {
-    launches = launches.filter(l => l.id !== id);
-    if (selectedDesignId === id) selectedDesignId = launches[0]?.id || null;
+    designs = designs.filter(l => l.id !== id);
+    if (selectedDesignId === id) selectedDesignId = designs[0]?.id || null;
     renderDesignSelector();
     renderSteps();
     renderLaunches();
@@ -432,23 +500,102 @@ window.deleteDesign = async (id) => {
   }
 };
 
+window.openLaunchModal = (id = null) => {
+  const launch = launchGroups.find(item => item.id === id);
+  editingLaunchId = launch?.id || null;
+  document.getElementById('launch-modal-title').innerText = launch ? 'Edit Launch' : 'Create Launch';
+  document.getElementById('launch-name').value = launch?.name || '';
+  document.getElementById('launch-release-date').value = launch?.date || '';
+  document.getElementById('launch-notes').value = launch?.notes || '';
+  document.getElementById('modal-launch').classList.remove('hidden');
+  document.getElementById('launch-name').focus();
+};
+
+window.closeLaunchModal = () => {
+  document.getElementById('modal-launch').classList.add('hidden');
+  editingLaunchId = null;
+};
+
+window.saveLaunchGroup = async (event) => {
+  event.preventDefault();
+  const name = document.getElementById('launch-name').value.trim();
+  const date = document.getElementById('launch-release-date').value;
+  if (!name || !date) return;
+
+  const group = {
+    name,
+    date,
+    notes: document.getElementById('launch-notes').value.trim()
+  };
+
+  if (editingLaunchId) {
+    if (db) {
+      await updateDoc(doc(db, 'yelina_launch_groups', editingLaunchId), group);
+    } else {
+      launchGroups = launchGroups.map(item => item.id === editingLaunchId ? { ...item, ...group } : item);
+      saveLocalLaunchGroups();
+      renderLaunches();
+    }
+  } else if (db) {
+    await addDoc(collection(db, 'yelina_launch_groups'), group);
+  } else {
+    launchGroups.push({ id: String(Date.now()), ...group });
+    saveLocalLaunchGroups();
+    renderLaunches();
+    renderDesignSelector();
+  }
+  closeLaunchModal();
+};
+
+window.deleteLaunchGroup = async (id) => {
+  const launch = launchGroups.find(item => item.id === id);
+  if (!launch) return;
+  if (designs.some(design => design.launchId === id)) {
+    alert('Move or remove this launch’s designs before deleting the launch.');
+    return;
+  }
+  if (!confirm(`Delete the ${launch.name} launch?`)) return;
+  if (db) {
+    await deleteDoc(doc(db, 'yelina_launch_groups', id));
+  } else {
+    launchGroups = launchGroups.filter(item => item.id !== id);
+    saveLocalLaunchGroups();
+    renderLaunches();
+    renderDesignSelector();
+  }
+};
+
+function renderDesignLaunchOptions(selectedLaunchId = '') {
+  const select = document.getElementById('design-launch-select');
+  select.innerHTML = launchGroups.map(launch =>
+    `<option value="${escapeHtml(launch.id)}">${escapeHtml(launch.name)} · ${escapeHtml(launch.date || 'Date not set')}</option>`
+  ).join('');
+  select.disabled = launchGroups.length === 0;
+  select.value = launchGroups.some(launch => launch.id === selectedLaunchId) ? selectedLaunchId : launchGroups[0]?.id || '';
+}
+
 window.openConfigModal = () => document.getElementById('modal-config').classList.remove('hidden');
 window.closeConfigModal = () => document.getElementById('modal-config').classList.add('hidden');
 
-window.openAddModal = () => {
+window.openAddModal = (launchId = '') => {
+  if (launchGroups.length === 0) {
+    alert('Create a launch before adding designs.');
+    switchTab('pipeline');
+    return;
+  }
   editingDesignId = null;
   document.getElementById('modal-title').innerText = "Add New Garment Design";
   document.getElementById('add-name').value = '';
   document.getElementById('add-fabric').value = '';
   document.getElementById('add-cost').value = '';
-  document.getElementById('add-date').value = '';
+  renderDesignLaunchOptions(launchId);
   selectedImagesBase64 = [];
   renderImagePreviews();
   document.getElementById('modal-add').classList.remove('hidden');
 };
 
 window.openEditModal = (id) => {
-  const design = launches.find(l => l.id === id);
+  const design = designs.find(l => l.id === id);
   if (!design) return;
 
   editingDesignId = id;
@@ -456,7 +603,7 @@ window.openEditModal = (id) => {
   document.getElementById('add-name').value = design.name || '';
   document.getElementById('add-fabric').value = design.fabric || '';
   document.getElementById('add-cost').value = design.cost || '';
-  document.getElementById('add-date').value = design.date || '';
+  renderDesignLaunchOptions(design.launchId);
 
   selectedImagesBase64 = [...(design.images || [])];
   renderImagePreviews();
@@ -485,16 +632,20 @@ window.saveDesign = async () => {
   const name = document.getElementById('add-name').value;
   const fabric = document.getElementById('add-fabric').value;
   const cost = Number(document.getElementById('add-cost').value);
-  const date = document.getElementById('add-date').value;
+  const launchId = document.getElementById('design-launch-select').value;
+  if (!launchId) {
+    alert('Select a launch for this design.');
+    return;
+  }
 
   if (editingDesignId) {
-    const design = launches.find(l => l.id === editingDesignId);
+    const design = designs.find(l => l.id === editingDesignId);
     if (design) {
       const updatedFields = {
         name: name || design.name,
         fabric: fabric || design.fabric,
         cost: cost || design.cost,
-        date: date || design.date,
+        launchId,
         images: selectedImagesBase64
       };
 
@@ -510,11 +661,11 @@ window.saveDesign = async () => {
     }
   } else {
     const newDoc = {
-      code: `YEL-0${launches.length + 1}`,
+      code: `YEL-0${designs.length + 1}`,
       name: name || 'New Garment Design',
       fabric: fabric || 'Cotton Blend',
       cost: cost || 3000,
-      date: date || '2026-12-01',
+      launchId,
       stage: 1,
       completedTasks: {},
       images: selectedImagesBase64
@@ -525,7 +676,7 @@ window.saveDesign = async () => {
       selectedDesignId = docRef.id;
     } else {
       const id = String(Date.now());
-      launches.push({ id, ...newDoc });
+      designs.push({ id, ...newDoc });
       selectedDesignId = id;
       renderDesignSelector();
       renderSteps();
@@ -539,16 +690,18 @@ window.saveDesign = async () => {
 
 function renderDesignSelector() {
   const sel = document.getElementById('design-selector');
-  if (launches.length === 0) {
+  if (designs.length === 0) {
     sel.innerHTML = '<option value="">No designs added yet</option>';
+    refreshCostCalculator();
     return;
   }
-  sel.innerHTML = launches.map(l => `<option value="${l.id}" ${l.id === selectedDesignId ? 'selected' : ''}>${l.code} - ${l.name}</option>`).join('');
+  sel.innerHTML = designs.map(l => `<option value="${l.id}" ${l.id === selectedDesignId ? 'selected' : ''}>${l.code} - ${l.name}</option>`).join('');
+  refreshCostCalculator();
 }
 
 function renderSteps() {
   const container = document.getElementById('steps-grid');
-  const activeDesign = launches.find(l => l.id === selectedDesignId);
+  const activeDesign = designs.find(l => l.id === selectedDesignId);
   const tasks = activeDesign?.completedTasks || {};
 
   container.innerHTML = STEPS.map(s => {
@@ -611,71 +764,67 @@ function renderSteps() {
 }
 
 function renderLaunches() {
-  const container = document.getElementById('pipeline-cards');
-  if (launches.length === 0) {
-    container.innerHTML = '<div class="col-span-3 text-center py-12 text-stone-400">No active launches. Click "+ Add New Design" to start.</div>';
+  const container = document.getElementById('launch-groups-container');
+  if (!container) return;
+  if (launchGroups.length === 0) {
+    container.innerHTML = '<div class="bg-white border border-dashed border-stone-300 rounded-xl py-12 text-center"><p class="font-semibold text-stone-700">No launches yet</p><p class="mt-1 text-sm text-stone-500">Create a launch, then add the designs that will be released together.</p></div>';
     return;
   }
-  container.innerHTML = launches.map(l => {
-    const totalCompleted = STEPS.reduce((acc, s) => {
-      const done = s.checklist.filter((_, idx) => !!l.completedTasks?.[`${s.id}_${idx}`]).length;
-      return acc + done;
-    }, 0);
-    const totalChecklistItems = STEPS.reduce((acc, s) => acc + s.checklist.length, 0);
-    const progressPct = Math.round((totalCompleted / totalChecklistItems) * 100);
-
+  container.innerHTML = launchGroups.slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')).map(launch => {
+    const launchDesigns = designs.filter(design => design.launchId === launch.id);
     return `
-      <div class="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-3 relative group flex flex-col justify-between">
-        <div class="space-y-3">
-          ${l.images && l.images.length > 0 ? `
-            <div class="flex space-x-2 overflow-x-auto pb-1 scrollbar-thin">
-              ${l.images.map(img => `<img src="${img}" onclick="openLightbox('${img}', '${l.code} - ${l.name}')" class="w-20 h-20 object-cover rounded-xl border border-stone-200 shadow-sm flex-shrink-0 cursor-pointer hover:opacity-90 transition">`).join('')}
+      <article class="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
+        <header class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 p-5 border-b border-stone-200">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-3">
+              <h3 class="font-serif text-xl font-bold text-stone-900">${escapeHtml(launch.name)}</h3>
+              <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200">Release ${escapeHtml(launch.date || 'Date not set')}</span>
             </div>
-          ` : ''}
-
-          <div class="flex justify-between items-start">
-            <span class="text-xs font-mono font-bold text-brand-goldDark bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">${l.code}</span>
-            <div class="flex items-center space-x-2">
-              <span class="text-xs font-medium text-stone-500">Target: ${l.date}</span>
-              <button onclick="openEditModal('${l.id}')" title="Edit Design Block" class="text-stone-400 hover:text-brand-goldDark transition text-sm font-bold">✏️</button>
-              <button onclick="deleteDesign('${l.id}')" title="Delete Design" class="text-stone-400 hover:text-red-600 transition text-sm font-bold">🗑️</button>
-            </div>
+            ${launch.notes ? `<p class="mt-2 text-sm text-stone-600 whitespace-pre-wrap">${escapeHtml(launch.notes)}</p>` : ''}
+            <p class="mt-2 text-xs text-stone-500">${launchDesigns.length} design${launchDesigns.length === 1 ? '' : 's'} in this launch</p>
           </div>
-          <h3 class="font-serif font-bold text-lg text-stone-900">${l.name}</h3>
-          <div class="text-xs text-stone-600 space-y-1">
-            <div><span class="font-semibold">Fabric:</span> ${l.fabric}</div>
-            <div><span class="font-semibold">Est. Unit Cost:</span> LKR ${l.cost}</div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button onclick="openAddModal('${escapeHtml(launch.id)}')" class="px-3 py-2 rounded-lg bg-brand-gold text-white text-sm font-medium hover:bg-brand-goldDark">+ Add Design</button>
+            <button onclick="openLaunchModal('${escapeHtml(launch.id)}')" class="px-3 py-2 rounded-lg border border-stone-300 text-sm text-stone-700 hover:bg-stone-100">Edit Launch</button>
+            <button onclick="deleteLaunchGroup('${escapeHtml(launch.id)}')" class="px-3 py-2 rounded-lg border border-red-200 text-sm text-red-700 hover:bg-red-50">Delete</button>
           </div>
+        </header>
+        <div class="divide-y divide-stone-100">
+          ${launchDesigns.length ? launchDesigns.map(design => {
+            const done = STEPS.reduce((count, step) => count + step.checklist.filter((_, index) => !!design.completedTasks?.[`${step.id}_${index}`]).length, 0);
+            const total = STEPS.reduce((count, step) => count + step.checklist.length, 0);
+            const progress = total ? Math.round(done / total * 100) : 0;
+            return `
+              <div class="flex flex-col lg:flex-row lg:items-center gap-3 p-4">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-mono font-bold text-brand-goldDark">${escapeHtml(design.code)}</span>
+                    <h4 class="font-semibold text-stone-900">${escapeHtml(design.name)}</h4>
+                  </div>
+                  <p class="mt-1 text-xs text-stone-500">${escapeHtml(design.fabric || 'Fabric not set')} · ${progress}% production progress · ${STEPS.find(step => step.id === design.stage)?.title || 'In Development'}</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="text-sm font-semibold text-stone-700">LKR ${Number(design.calculatedUnitCost ?? design.cost ?? 0).toLocaleString()}</span>
+                  <button onclick="changeSelectedDesign('${escapeHtml(design.id)}'); switchTab('workflow')" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm text-stone-700 hover:bg-stone-100">Workflow</button>
+                  <button onclick="openEditModal('${escapeHtml(design.id)}')" aria-label="Edit ${escapeHtml(design.name)}" title="Edit design" class="w-9 h-9 rounded-lg text-stone-500 hover:bg-stone-100">✎</button>
+                  <button onclick="deleteDesign('${escapeHtml(design.id)}')" aria-label="Delete ${escapeHtml(design.name)}" title="Delete design" class="w-9 h-9 rounded-lg text-red-600 hover:bg-red-50">×</button>
+                </div>
+              </div>
+            `;
+          }).join('') : '<p class="p-5 text-sm text-stone-500">No designs in this launch yet.</p>'}
         </div>
-
-        <div class="space-y-3 pt-2">
-          <div class="space-y-1">
-            <div class="flex justify-between text-[11px] font-semibold text-stone-600">
-              <span>Overall Progress</span>
-              <span>${progressPct}%</span>
-            </div>
-            <div class="w-full bg-stone-100 rounded-full h-2 overflow-hidden">
-              <div class="bg-brand-gold h-2 rounded-full transition-all duration-300" style="width: ${progressPct}%"></div>
-            </div>
-          </div>
-
-          <div class="pt-2 border-t border-stone-100 flex items-center justify-between">
-            <span class="text-xs font-semibold text-stone-700">Stage ${l.stage}/${STEPS.length}</span>
-            <span class="text-xs px-2.5 py-1 bg-stone-100 text-stone-800 font-medium rounded-lg">${STEPS.find(s => s.id === l.stage)?.title || 'In Development'}</span>
-          </div>
-        </div>
-      </div>
+      </article>
     `;
   }).join('');
 }
 
 function renderTable() {
   const tbody = document.getElementById('database-tbody');
-  if (launches.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="p-6 text-center text-stone-400">Database is empty. Add designs in the Launch Tracker.</td></tr>';
+  if (designs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="p-6 text-center text-stone-400">Database is empty. Add designs to a launch.</td></tr>';
     return;
   }
-  tbody.innerHTML = launches.map(l => `
+  tbody.innerHTML = designs.map(l => `
     <tr class="hover:bg-stone-50 transition">
       <td class="p-3">
         ${l.images && l.images[0] ? `
@@ -685,9 +834,11 @@ function renderTable() {
       <td class="p-3 font-mono text-xs font-bold text-brand-goldDark">${l.code}</td>
       <td class="p-3 font-semibold text-stone-900">${l.name}</td>
       <td class="p-3 text-xs"><span class="px-2 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-md font-medium">Step ${l.stage}: ${STEPS.find(s => s.id === l.stage)?.title}</span></td>
+      <td class="p-3 text-stone-600">${escapeHtml(launchGroups.find(launch => launch.id === l.launchId)?.name || 'Unassigned')}</td>
       <td class="p-3 text-stone-600">${l.fabric}</td>
-      <td class="p-3 text-stone-900 font-medium">LKR ${l.cost}</td>
-      <td class="p-3 text-stone-500 text-xs">${l.date}</td>
+      <td class="p-3 text-stone-900">LKR ${Number(l.cost ?? 0).toLocaleString()}</td>
+      <td class="p-3 text-stone-900 font-medium">${l.calculatedUnitCost == null ? '—' : `LKR ${Number(l.calculatedUnitCost).toLocaleString()}`}</td>
+      <td class="p-3 text-stone-500 text-xs">${escapeHtml(launchGroups.find(launch => launch.id === l.launchId)?.date || '')}</td>
       <td class="p-3 text-right space-x-2">
         <button onclick="openEditModal('${l.id}')" title="Edit Design" class="text-stone-500 hover:text-stone-900 font-bold">✏️</button>
         <button onclick="deleteDesign('${l.id}')" title="Delete Design" class="text-stone-400 hover:text-red-600 font-bold">🗑️</button>
@@ -698,8 +849,11 @@ function renderTable() {
 
 window.exportCSV = () => {
   const csvContent = "data:text/csv;charset=utf-8," + [
-    "Code,Name,Stage,Fabric,Cost_LKR,Target_Date",
-    ...launches.map(l => `${l.code},"${l.name}",${l.stage},"${l.fabric}",${l.cost},${l.date}`)
+    "Code,Name,Launch,Stage,Fabric,Estimated_Cost_LKR,Calculated_Cost_LKR,Release_Date",
+    ...designs.map(design => {
+      const launch = launchGroups.find(item => item.id === design.launchId);
+      return `${design.code},"${design.name}","${launch?.name || ''}",${design.stage},"${design.fabric}",${design.cost},${design.calculatedUnitCost ?? ''},${launch?.date || ''}`;
+    })
   ].join("\n");
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement("a");
@@ -712,7 +866,18 @@ window.exportCSV = () => {
 
 initDatabase();
 initializeVendorManager();
-initializeCalendar(() => launches, () => db);
+initializeCalendar(() => designs, () => db, () => launchGroups);
+initializeCostCalculator(() => designs, async (designId, costBreakdown, calculatedUnitCost) => {
+  const design = designs.find(item => String(item.id) === String(designId));
+  if (!design) throw new Error('The selected design is no longer available.');
+  if (db) {
+    await updateDoc(doc(db, 'yelina_launches', designId), { costBreakdown, calculatedUnitCost });
+  }
+  design.costBreakdown = costBreakdown;
+  design.calculatedUnitCost = calculatedUnitCost;
+  renderLaunches();
+  renderTable();
+});
 renderAdminSteps();
 renderSteps();
 renderLaunches();

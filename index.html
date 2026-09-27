@@ -73,6 +73,10 @@
         class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
         <span>Launch Calendar</span>
       </button>
+      <button onclick="switchTab('cost-calculator')" id="tab-cost-calculator"
+        class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
+        <span>Cost Calculator</span>
+      </button>
       <button onclick="switchTab('database')" id="tab-database"
         class="tab-btn px-3 py-2 rounded-lg text-stone-600 hover:text-stone-900 flex items-center space-x-2">
         <span>Database Table</span>
@@ -120,12 +124,13 @@
     <section id="view-pipeline" class="hidden space-y-6">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 class="font-serif text-2xl font-bold text-stone-900">Launch Tracker & Monitoring</h2>
-          <p class="text-stone-600 text-sm">Monitor live progress and stages driven by the workflow process.</p>
+          <h2 class="font-serif text-2xl font-bold text-stone-900">Launches</h2>
+          <p class="text-stone-600 text-sm">Group designs that will be released and marketed together.</p>
         </div>
+        <button onclick="openLaunchModal()" class="bg-brand-gold hover:bg-brand-goldDark text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">+ Create Launch</button>
       </div>
 
-      <div id="pipeline-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      <div id="launch-groups-container" class="space-y-4"></div>
     </section>
 
     <section id="view-deadlines" class="hidden space-y-5 max-w-7xl mx-auto">
@@ -186,6 +191,54 @@
       <p id="calendar-drag-status" class="sr-only" aria-live="polite"></p>
     </section>
 
+    <section id="view-cost-calculator" class="hidden space-y-5 max-w-5xl mx-auto">
+      <div>
+        <h2 class="font-serif text-2xl font-bold text-stone-900">Cost Calculator</h2>
+        <p class="text-stone-600 text-sm">Calculate and save a unit cost breakdown for each design.</p>
+      </div>
+      <div class="bg-white border border-stone-200 rounded-xl shadow-sm p-5 sm:p-7">
+        <label for="cost-design-select" class="block max-w-xl">
+          <span class="text-xs font-semibold uppercase text-stone-500 block mb-1">Design</span>
+          <select id="cost-design-select" onchange="selectCostDesign(this.value)" class="w-full p-3 border border-stone-300 rounded-xl text-sm font-semibold text-stone-900 bg-white"></select>
+        </label>
+        <div id="cost-calculator-empty" class="hidden mt-6 py-10 text-center text-sm text-stone-500">Add a design before calculating its costs.</div>
+        <div id="cost-calculator-form" class="hidden mt-6">
+          <div class="border-y border-stone-200 divide-y divide-stone-100">
+            <label class="grid grid-cols-[1fr_9rem] sm:grid-cols-[1fr_13rem] items-center gap-4 py-3">
+              <span class="text-sm font-medium text-stone-800">Fabric</span>
+              <span class="relative"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-stone-500">LKR</span><input id="cost-fabric" type="number" min="0" step="0.01" oninput="updateCostTotal()" class="w-full p-2.5 pl-12 border border-stone-300 rounded-lg text-sm text-right"></span>
+            </label>
+            <label class="grid grid-cols-[1fr_9rem] sm:grid-cols-[1fr_13rem] items-center gap-4 py-3">
+              <span class="text-sm font-medium text-stone-800">Trims & accessories</span>
+              <span class="relative"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-stone-500">LKR</span><input id="cost-trims" type="number" min="0" step="0.01" oninput="updateCostTotal()" class="w-full p-2.5 pl-12 border border-stone-300 rounded-lg text-sm text-right"></span>
+            </label>
+            <label class="grid grid-cols-[1fr_9rem] sm:grid-cols-[1fr_13rem] items-center gap-4 py-3">
+              <span class="text-sm font-medium text-stone-800">Labor</span>
+              <span class="relative"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-stone-500">LKR</span><input id="cost-labor" type="number" min="0" step="0.01" oninput="updateCostTotal()" class="w-full p-2.5 pl-12 border border-stone-300 rounded-lg text-sm text-right"></span>
+            </label>
+            <label class="grid grid-cols-[1fr_9rem] sm:grid-cols-[1fr_13rem] items-center gap-4 py-3">
+              <span class="text-sm font-medium text-stone-800">Packaging</span>
+              <span class="relative"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-stone-500">LKR</span><input id="cost-packaging" type="number" min="0" step="0.01" oninput="updateCostTotal()" class="w-full p-2.5 pl-12 border border-stone-300 rounded-lg text-sm text-right"></span>
+            </label>
+            <label class="grid grid-cols-[1fr_9rem] sm:grid-cols-[1fr_13rem] items-center gap-4 py-3">
+              <span class="text-sm font-medium text-stone-800">Other overhead</span>
+              <span class="relative"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-stone-500">LKR</span><input id="cost-overhead" type="number" min="0" step="0.01" oninput="updateCostTotal()" class="w-full p-2.5 pl-12 border border-stone-300 rounded-lg text-sm text-right"></span>
+            </label>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-5">
+            <div>
+              <p class="text-xs font-semibold uppercase text-stone-500">Calculated unit cost</p>
+              <p id="cost-total" class="mt-1 font-serif text-3xl font-bold text-stone-900">LKR 0.00</p>
+            </div>
+            <div class="flex items-center gap-4">
+              <p id="cost-save-status" class="text-xs text-stone-500" aria-live="polite"></p>
+              <button id="cost-save-button" type="button" onclick="saveDesignCost()" class="bg-brand-gold hover:bg-brand-goldDark text-white px-5 py-2.5 rounded-lg text-sm font-semibold">Save Cost</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="view-database" class="hidden space-y-6">
       <div class="bg-white rounded-2xl p-6 shadow-sm border border-stone-200">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -207,9 +260,11 @@
                 <th class="p-3 font-semibold">Design Code</th>
                 <th class="p-3 font-semibold">Garment Name</th>
                 <th class="p-3 font-semibold">Current Stage</th>
+                <th class="p-3 font-semibold">Launch</th>
                 <th class="p-3 font-semibold">Fabric Type</th>
-                <th class="p-3 font-semibold">Target Cost (LKR)</th>
-                <th class="p-3 font-semibold">Target Launch</th>
+                <th class="p-3 font-semibold">Estimated Cost (LKR)</th>
+                <th class="p-3 font-semibold">Calculated Cost (LKR)</th>
+                <th class="p-3 font-semibold">Release Date</th>
                 <th class="p-3 font-semibold text-right">Actions</th>
               </tr>
             </thead>
@@ -327,13 +382,13 @@
           <label class="text-xs font-semibold uppercase text-stone-500 block mb-1">Fabric Type</label>
           <input id="add-fabric" class="w-full p-3 border border-stone-300 rounded-xl text-sm" placeholder="Cotton Blend">
         </div>
+        <div class="md:col-span-2">
+          <label for="design-launch-select" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Launch</label>
+          <select id="design-launch-select" required class="w-full p-3 border border-stone-300 rounded-xl text-sm bg-white"></select>
+        </div>
         <div>
           <label class="text-xs font-semibold uppercase text-stone-500 block mb-1">Estimated Cost (LKR)</label>
           <input id="add-cost" type="number" class="w-full p-3 border border-stone-300 rounded-xl text-sm" placeholder="3000">
-        </div>
-        <div>
-          <label class="text-xs font-semibold uppercase text-stone-500 block mb-1">Target Launch</label>
-          <input id="add-date" type="date" class="w-full p-3 border border-stone-300 rounded-xl text-sm">
         </div>
       </div>
 
@@ -348,6 +403,33 @@
         <button onclick="saveDesign()" class="px-4 py-2 rounded-xl bg-brand-gold text-white hover:bg-brand-goldDark">Save Design</button>
       </div>
     </div>
+  </div>
+
+  <div id="modal-launch" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="launch-modal-title">
+    <form onsubmit="saveLaunchGroup(event)" class="bg-white rounded-2xl w-full max-w-xl p-6 shadow-2xl border border-stone-200">
+      <div class="flex justify-between items-center mb-5">
+        <h3 id="launch-modal-title" class="font-serif text-2xl font-bold text-stone-900">Create Launch</h3>
+        <button type="button" onclick="closeLaunchModal()" aria-label="Close launch form" class="text-stone-500 hover:text-stone-900 text-2xl">×</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label for="launch-name" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Launch Name</label>
+          <input id="launch-name" required maxlength="120" class="w-full p-3 border border-stone-300 rounded-xl text-sm" placeholder="e.g. La Renaissance">
+        </div>
+        <div>
+          <label for="launch-release-date" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Release Date</label>
+          <input id="launch-release-date" type="date" required class="w-full p-3 border border-stone-300 rounded-xl text-sm">
+        </div>
+        <div>
+          <label for="launch-notes" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Campaign Notes (optional)</label>
+          <textarea id="launch-notes" rows="3" maxlength="1000" class="w-full p-3 border border-stone-300 rounded-xl text-sm" placeholder="Marketing or release details"></textarea>
+        </div>
+      </div>
+      <div class="mt-6 flex justify-end gap-3">
+        <button type="button" onclick="closeLaunchModal()" class="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100">Cancel</button>
+        <button type="submit" class="px-4 py-2 rounded-xl bg-brand-gold text-white hover:bg-brand-goldDark">Save Launch</button>
+      </div>
+    </form>
   </div>
 
   <div id="modal-vendor" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="vendor-modal-title">
@@ -407,8 +489,8 @@
           <input id="calendar-task-time" type="time" class="w-full p-3 border border-stone-300 rounded-xl text-sm">
         </div>
         <div>
-          <label for="calendar-task-design" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Related Design (optional)</label>
-          <select id="calendar-task-design" class="w-full p-3 border border-stone-300 rounded-xl text-sm bg-white"></select>
+          <label for="calendar-task-related" class="text-xs font-semibold uppercase text-stone-500 block mb-1">Related Launch or Design (optional)</label>
+          <select id="calendar-task-related" class="w-full p-3 border border-stone-300 rounded-xl text-sm bg-white"></select>
         </div>
         <fieldset>
           <legend class="text-xs font-semibold uppercase text-stone-500 block mb-2">Task Color</legend>
